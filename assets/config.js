@@ -5,7 +5,7 @@
             Debe terminar en /exec
    ═══════════════════════════════════════════════════════════════ */
 window.ABPA_CONFIG = {
-  API_URL: '',       // https://script.google.com/macros/s/AKfycbzJRqJJ51uqZKDpd_uXHjX3SRfiDRY4XEQzu48HnhyOsDS7_8kIq9iWBeBqRc_lppiZsQ/exec
-  PANEL_URL: '',     // opcional: dirección del panel (vacío = /panel/ del mismo sitio)
-  CORREO: ''         // basquetbolpuntaarenas@gmail.com
+  API_URL: 'https://script.google.com/macros/s/AKfycbzJRqJJ51uqZKDpd_uXHjX3SRfiDRY4XEQzu48HnhyOsDS7_8kIq9iWBeBqRc_lppiZsQ/exec',
+  PANEL_URL: '',
+  CORREO: 'basquetbolpuntaarenas@gmail.com'
 };
