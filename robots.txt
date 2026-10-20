@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /panel/
+Sitemap: https://www.abpa.cl/sitemap.xml
