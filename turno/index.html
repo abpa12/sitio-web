@@ -13,7 +13,7 @@
   <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
   <script>window.ABPA_MODO = 'turno';</script>
   <link rel="icon" type="image/png" href="../assets/img/favicon.png">
-  <script src="../assets/config.js?v=20261026c"></script>
+  <script src="../assets/config.js?v=20261027a"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -634,6 +634,7 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
     return c.LogoID ? '<img class="st-logo" style="width:' + (t || 40) + 'px;height:' + (t || 40) + 'px" src="' + img(c.LogoID, 120) + '" alt="">'
       : '<span class="st-logo" style="width:' + (t || 40) + 'px;height:' + (t || 40) + 'px">' + esc((c.Sigla || c.Nombre || '?').slice(0, 3)) + '</span>';
   }
+  function eqNom(c, letra) { return c.Nombre + (letra ? ' ' + letra : ''); }
   function sinResultado(p) { return p.Fecha < hoy() && (!p.Estado || p.Estado === 'Programado'); }
 
   // ─── Formularios genéricos ───
@@ -643,7 +644,8 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
     Partidos: {
       uno: 'partido', campos: function () {
         return [['CategoriaID', 'Categoría', 'select', opcCats(), 1], ['Fase', 'Fecha o fase (ej: Fecha 3, Semifinal)', 'text'], ['Numero', 'N° de partido (correlativo único; vacío = se asigna el siguiente)', 'number'], ['Fecha', 'Día', 'date'], ['Hora', 'Hora', 'time'],
-          ['LocalID', 'Local', 'select', opcClubes()], ['VisitaID', 'Visita', 'select', opcClubes()], ['Recinto', 'Gimnasio / cancha', 'text', null, 1],
+          ['LocalID', 'Local', 'select', opcClubes()], ['VisitaID', 'Visita', 'select', opcClubes()],
+          ['LocalEquipo', 'Equipo local (solo si el club tiene más de uno: A, B…)', 'select', ['A', 'B', 'C', 'D']], ['VisitaEquipo', 'Equipo visita (solo si el club tiene más de uno)', 'select', ['A', 'B', 'C', 'D']], ['Recinto', 'Gimnasio / cancha', 'text', null, 1],
           ['Estado', 'Estado', 'select', D.estados], ['PuntosLocal', 'Puntos local', 'number'], ['PuntosVisita', 'Puntos visita', 'number'],
           ['Observacion', 'Observación (opcional, se ve en el sitio: ej. «Con alargue», «Cambio de cancha»)', 'text', null, 1],
           ['CuentaTabla', 'Suma en la tabla de posiciones (desmarca en playoffs o amistosos)', 'sino'], ['Publicado', 'Visible en el sitio', 'sino']];
@@ -853,11 +855,11 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
     var pl = p.PuntosLocal, pv = p.PuntosVisita;
     var gL = jugado && +pl > +pv || p.Estado === 'W.O. gana local', gV = jugado && +pv > +pl || p.Estado === 'W.O. gana visita';
     var marc = editable && C.puede()
-      ? '<input class="inp num" data-pl type="number" min="0" value="' + esc(pl) + '" aria-label="Puntos ' + esc(L.Nombre) + '"> – <input class="inp num" data-pv type="number" min="0" value="' + esc(pv) + '" aria-label="Puntos ' + esc(V.Nombre) + '">'
+      ? '<input class="inp num" data-pl type="number" min="0" value="' + esc(pl) + '" aria-label="Puntos ' + esc(eqNom(L, p.LocalEquipo)) + '"> – <input class="inp num" data-pv type="number" min="0" value="' + esc(pv) + '" aria-label="Puntos ' + esc(V.Nombre) + '">'
       : (jugado ? esc(pl) + ' – ' + esc(pv) : /^W\.O/.test(p.Estado) ? 'W.O.' : '<span class="muted" style="font-size:13px;font-weight:600">vs</span>');
     var estados = D.estados.map(function (e) { return '<option' + (e === (p.Estado || 'Programado') ? ' selected' : '') + '>' + e + '</option>'; }).join('');
     return '<div class="pt' + (sinResultado(p) ? ' pend' : '') + '" data-pid="' + p.ID + '"><div class="cuando"><b>' + C.fechaCL(p.Fecha) + '</b>' + (p.Hora ? p.Hora + ' h' : 'Hora por definir') + (p.Numero ? '<span class="muted"> · N° ' + p.Numero + '</span>' : '') + '</div>' +
-      '<div class="vs"><div class="eq' + (gL ? ' gana' : '') + '">' + logo(L, 30) + '<span>' + esc(L.Nombre) + '</span></div><div class="marc">' + marc + '</div><div class="eq v' + (gV ? ' gana' : '') + '"><span>' + esc(V.Nombre) + '</span>' + logo(V, 30) + '</div></div>' +
+      '<div class="vs"><div class="eq' + (gL ? ' gana' : '') + '">' + logo(L, 30) + '<span>' + esc(eqNom(L, p.LocalEquipo)) + '</span></div><div class="marc">' + marc + '</div><div class="eq v' + (gV ? ' gana' : '') + '"><span>' + esc(eqNom(V, p.VisitaEquipo)) + '</span>' + logo(V, 30) + '</div></div>' +
       '<div class="acc">' + (editable && C.puede() ? '<select class="inp" data-est>' + estados + '</select><button class="btn chico prim" data-guardar>Guardar</button>' : '<span class="badge ' + (jugado || /^W/.test(p.Estado) ? 'b-ok' : p.Estado === 'Programado' || !p.Estado ? 'b-azul' : 'b-parcial') + '">' + esc(p.Estado || 'Programado') + '</span>') +
       '<button class="btn chico solo-edita" data-editar="Partidos:' + p.ID + '" title="Editar">✎</button></div>' +
       '<div class="det">' + esc(cat(p.CategoriaID).Nombre) + (p.Fase ? ' · ' + esc(p.Fase) : '') + (p.Recinto ? ' · ' + esc(p.Recinto) : '') + (p.Observacion ? ' · ' + esc(p.Observacion) : '') +
@@ -910,8 +912,11 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
     if (!D.categorias.length || D.clubes.length < 2) { C.toast('Necesitas al menos una categoría y dos clubes.', 'error'); return; }
     var m = C.modal('<h3>Generar fixture «todos contra todos»</h3>',
       '<form class="form f2" id="f-fix"><label class="campo full"><span>Categoría</span><select class="inp" name="cat">' + opcCats().map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === F.cat ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label>' +
-      '<div class="campo full"><span style="display:block;font-size:12.5px;font-weight:600;color:var(--tinta-2);margin-bottom:5px">Clubes participantes</span><div class="clubes-sel">' +
-      D.clubes.filter(function (c) { return c.Activo !== 'NO'; }).map(function (c) { return '<label><input type="checkbox" name="club" value="' + c.ID + '" checked> ' + esc(c.Nombre) + '</label>'; }).join('') + '</div></div>' +
+      '<div class="campo full"><span style="display:block;font-size:12.5px;font-weight:600;color:var(--tinta-2);margin-bottom:5px">Clubes participantes y cuántos equipos presenta cada uno</span><div class="clubes-sel">' +
+      D.clubes.filter(function (c) { return c.Activo !== 'NO'; }).map(function (c) {
+        return '<label style="justify-content:space-between"><span style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="club" value="' + c.ID + '" checked> ' + esc(c.Nombre) + '</span>' +
+          '<select class="inp" data-neq="' + c.ID + '" style="width:auto;min-height:30px;padding:3px 6px;font-size:12px"><option value="1">1 equipo</option><option value="2">2 (A y B)</option><option value="3">3 (A, B, C)</option></select></label>';
+      }).join('') + '</div><div class="ayuda">Si un club presenta dos equipos en esta categoría (ej: Cordenap A y Cordenap B), elige «2».</div></div>' +
       '<label class="campo"><span>Día de la primera fecha</span><input class="inp" type="date" name="desde" required value="' + hoy() + '"></label>' +
       '<label class="campo"><span>Días entre fechas</span><input class="inp num" type="number" name="dias" min="1" value="7"></label>' +
       '<label class="campo"><span>Hora (opcional)</span><input class="inp" type="time" name="hora"></label>' +
@@ -920,11 +925,16 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
       '<button class="btn" data-no>Cancelar</button><button class="btn prim" data-ok>Crear partidos</button>');
     $('[data-no]', m).onclick = m.cerrar;
     $('[data-ok]', m).onclick = function () {
-      var f = $('#f-fix', m), ids = $$('input[name=club]:checked', f).map(function (x) { return +x.value; });
-      var n = ids.length, fechas = (n % 2 ? n : n - 1) * (f.iv.checked ? 2 : 1), partidos = Math.floor(n / 2) * fechas;
+      var f = $('#f-fix', m), equipos = [];
+      $$('input[name=club]:checked', f).forEach(function (x) {
+        var n = +$('[data-neq="' + x.value + '"]', f).value || 1;
+        if (n === 1) equipos.push({ club: +x.value, equipo: '' });
+        else for (var k = 0; k < n; k++) equipos.push({ club: +x.value, equipo: 'ABCD'[k] });
+      });
+      var n = equipos.length, fechas = (n % 2 ? n : n - 1) * (f.iv.checked ? 2 : 1), partidos = Math.floor(n / 2) * fechas;
       C.confirmar('Crear fixture', 'Se crearán <b>' + fechas + ' fechas</b> y <b>' + partidos + ' partidos</b> en ' + esc(cat(f.cat.value).Nombre) + '. ¿Continuar?', 'Crear').then(function (ok) {
         if (!ok) return;
-        C.api('apiGenerarFixture', C.S.token, { categoriaId: +f.cat.value, clubes: ids, desde: f.desde.value, diasEntreFechas: f.dias.value, hora: f.hora.value, idaVuelta: f.iv.checked })
+        C.api('apiGenerarFixture', C.S.token, { categoriaId: +f.cat.value, equipos: equipos, desde: f.desde.value, diasEntreFechas: f.dias.value, hora: f.hora.value, idaVuelta: f.iv.checked })
           .then(function (r) { C.toast(r.mensaje, 'ok'); m.cerrar(); F.cat = +f.cat.value; F.est = 'todos'; C.irA('partidos'); }).catch(C.fallo);
       });
     };
@@ -956,7 +966,9 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
       .then(function (zip) {
         return zip.file('xl/worksheets/sheet2.xml').async('string').then(function (xml) {
           var cats = D.categorias.map(function (c) { return c.Nombre; });
-          var clubes = D.clubes.filter(function (c) { return c.Activo !== 'NO'; }).map(function (c) { return c.Nombre; }).sort(function (a, b) { return a.localeCompare(b, 'es'); });
+          var clubes = [];
+          D.clubes.filter(function (c) { return c.Activo !== 'NO'; }).map(function (c) { return c.Nombre; }).sort(function (a, b) { return a.localeCompare(b, 'es'); })
+            .forEach(function (n) { clubes.push(n, n + ' A', n + ' B'); }); // «Cordenap A / B» cuando un club presenta dos equipos
           var celda = function (ref, t, st) { return '<c r="' + ref + '"' + (st ? ' s="' + st + '"' : '') + ' t="inlineStr"><is><t>' + xmlEsc(t) + '</t></is></c>'; };
           var filas = ['<row r="1">' + celda('A1', 'Categorías', 10) + celda('B1', 'Clubes', 10) + celda('D1', 'Esta hoja se completa sola al descargar la planilla desde el panel. No la modifiques.', 11) + '</row>'];
           for (var i = 0; i < Math.max(cats.length, clubes.length); i++) {
@@ -1000,14 +1012,23 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
       var porCat = {}, porClub = {};
       D.categorias.forEach(function (c) { porCat[norm(c.Nombre)] = c; });
       D.clubes.forEach(function (c) { porClub[norm(c.Nombre)] = c; if (c.Sigla) porClub[norm(c.Sigla)] = porClub[norm(c.Sigla)] || c; });
+      var buscarEq = function (txt) {
+        var c = porClub[norm(txt)];
+        if (c) return { c: c, l: '' };
+        var m2 = String(txt || '').trim().match(/^(.*\S)\s+([A-Da-d])$/);
+        if (m2 && porClub[norm(m2[1])]) return { c: porClub[norm(m2[1])], l: m2[2].toUpperCase() };
+        return { c: null, l: '' };
+      };
+      var ke = function (id, l) { return id + ':' + (l || ''); };
       var ya = {};
-      D.partidos.forEach(function (p) { ya[[p.CategoriaID, p.Fecha, p.LocalID, p.VisitaID].join('|')] = 1; });
+      D.partidos.forEach(function (p) { ya[[p.CategoriaID, p.Fecha, ke(p.LocalID, p.LocalEquipo), ke(p.VisitaID, p.VisitaEquipo)].join('|')] = 1; });
       var res = [], nuevos = 0, errores = 0, repetidos = 0, enPlanilla = {};
       for (var i = 1; i < filas.length; i++) {
         var r = filas[i];
         if (!r.slice(1, 7).some(function (c) { return String(c).trim() !== ''; })) continue;
         var o = { fila: i + 1, err: [] };
-        var c = porCat[norm(r[1])], L = porClub[norm(r[5])], V = porClub[norm(r[6])];
+        var c = porCat[norm(r[1])], bL = buscarEq(r[5]), bV = buscarEq(r[6]), L = bL.c, V = bV.c;
+        o.LocalEquipo = bL.l; o.VisitaEquipo = bV.l;
         o.Numero = String(r[0]).trim() === '' ? '' : Number(r[0]);
         if (o.Numero !== '' && !(o.Numero > 0 && Math.round(o.Numero) === o.Numero)) o.err.push('N° inválido');
         if (!c) o.err.push(r[1] ? 'categoría «' + r[1] + '» no existe' : 'falta la categoría');
@@ -1016,11 +1037,11 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
         o.Hora = horaExcel(r[4]); if (o.Hora === null) { o.err.push('hora inválida'); o.Hora = ''; }
         if (!L) o.err.push(r[5] ? 'club «' + r[5] + '» no existe' : 'falta el local');
         if (!V) o.err.push(r[6] ? 'club «' + r[6] + '» no existe' : 'falta la visita');
-        if (L && V && L.ID === V.ID) o.err.push('local y visita iguales');
+        if (L && V && L.ID === V.ID && o.LocalEquipo === o.VisitaEquipo) o.err.push('local y visita son el mismo equipo');
         o.Recinto = String(r[7]).trim(); o.Observacion = String(r[8]).trim();
-        o.cat = c ? c.Nombre : String(r[1]); o.loc = L ? L.Nombre : String(r[5]); o.vis = V ? V.Nombre : String(r[6]);
+        o.cat = c ? c.Nombre : String(r[1]); o.loc = L ? eqNom(L, o.LocalEquipo) : String(r[5]); o.vis = V ? eqNom(V, o.VisitaEquipo) : String(r[6]);
         if (c) o.CategoriaID = c.ID; if (L) o.LocalID = L.ID; if (V) o.VisitaID = V.ID;
-        var k = [o.CategoriaID, o.Fecha, o.LocalID, o.VisitaID].join('|');
+        var k = [o.CategoriaID, o.Fecha, ke(o.LocalID, o.LocalEquipo), ke(o.VisitaID, o.VisitaEquipo)].join('|');
         if (!o.err.length && ya[k]) { o.repetido = true; repetidos++; }
         else if (!o.err.length && enPlanilla[k]) o.err.push('fila repetida en la planilla');
         enPlanilla[k] = 1;
@@ -1041,7 +1062,7 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
       $('[data-ok]', m).onclick = function () {
         var b = this; b.disabled = true; b.textContent = 'Importando…';
         var envio = res.filter(function (o) { return !o.err.length && !o.repetido; }).map(function (o) {
-          return { fila: o.fila, CategoriaID: o.CategoriaID, Fase: o.Fase, Fecha: o.Fecha, Hora: o.Hora, LocalID: o.LocalID, VisitaID: o.VisitaID, Recinto: o.Recinto, Observacion: o.Observacion, Numero: o.Numero };
+          return { fila: o.fila, CategoriaID: o.CategoriaID, Fase: o.Fase, Fecha: o.Fecha, Hora: o.Hora, LocalID: o.LocalID, LocalEquipo: o.LocalEquipo, VisitaID: o.VisitaID, VisitaEquipo: o.VisitaEquipo, Recinto: o.Recinto, Observacion: o.Observacion, Numero: o.Numero };
         });
         C.api('apiImportarPartidos', C.S.token, envio).then(function (r) { C.toast(r.mensaje, 'ok'); m.cerrar(); recargar(); })
           .catch(function (err) { C.fallo(err); b.disabled = false; b.textContent = 'Importar ' + nuevos + ' partido(s)'; });

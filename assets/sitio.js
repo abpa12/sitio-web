@@ -190,15 +190,15 @@
     opc = opc || {};
     var L = club(p.l), V = club(p.v), j = jugado(p), wo = /^W\.O/.test(p.estado);
     var gL = j && p.pl > p.pv, gV = j && p.pv > p.pl;
-    var eq = function (c, lado, gana) {
+    var eq = function (c, lado, gana, letra) {
       var ref = CLUBES[c.id] ? 'club.html?id=' + c.id : null;
-      return '<' + (ref ? 'a href="' + ref + '"' : 'div') + ' class="equipo ' + lado + (j ? (gana ? ' gana' : ' pierde') : '') + '">' + escudo(c) + '<span class="n">' + esc(c.nombre) + '</span></' + (ref ? 'a' : 'div') + '>';
+      return '<' + (ref ? 'a href="' + ref + '"' : 'div') + ' class="equipo ' + lado + (j ? (gana ? ' gana' : ' pierde') : '') + '">' + escudo(c) + '<span class="n">' + esc(c.nombre + (letra ? ' ' + letra : '')) + '</span></' + (ref ? 'a' : 'div') + '>';
     };
     var marc = j ? '<div class="marcador' + (wo ? ' wo' : '') + '" aria-label="Resultado ' + p.pl + ' a ' + p.pv + '"><span class="' + (gL ? 'g' : '') + '">' + p.pl + '</span><span style="opacity:.5">–</span><span class="' + (gV ? 'g' : '') + '">' + p.pv + '</span></div>'
       : '<div class="marcador vs">' + (p.estado === 'Programado' ? (p.hora ? esc(p.hora) : 'vs') : esc(p.estado)) + '</div>';
     var c = CATS[p.cat] || {};
     return '<article class="partido aparece' + (p.fecha === hoy && !j ? ' hoy' : '') + '"><div class="cuando"><b>' + (p.fecha === hoy ? 'Hoy' : fechaCorta(p.fecha)) + '</b><span>' + (p.hora ? esc(p.hora) + ' h' : 'Hora por confirmar') + '</span></div>' +
-      '<div class="duelo">' + eq(L, 'local', gL) + marc + eq(V, 'visita', gV) + '</div>' +
+      '<div class="duelo">' + eq(L, 'local', gL, p.le) + marc + eq(V, 'visita', gV, p.ve) + '</div>' +
       '<div class="donde">' + (opc.cat ? '<span class="etiqueta">' + esc(c.nombre || '') + '</span><br>' : '') + (p.fase ? esc(p.fase) + '<br>' : '') + (p.recinto ? ico('pin') + ' ' + esc(p.recinto) : '') +
       (wo ? '<br><b>' + esc(p.estado) + '</b>' : (p.estado !== 'Programado' && p.estado !== 'Finalizado' ? '<br><span class="etiqueta ' + esc(p.estado) + '">' + esc(p.estado) + '</span>' : '')) +
       (p.obs ? '<br><i>' + esc(p.obs) + '</i>' : '') + '</div></article>';
@@ -210,7 +210,7 @@
       '<th class="oc-m" title="Puntos a favor">PF</th><th class="oc-m" title="Puntos en contra">PC</th><th title="Diferencia">DIF</th><th title="Puntos">PTS</th>' + (limite ? '' : '<th class="oc-m">Últimos</th>') + '</tr></thead><tbody>' +
       filas.map(function (r) {
         var cl = club(r.id);
-        return '<tr><td class="pos">' + r.pos + '</td><td><a class="club-c" href="club.html?id=' + r.id + '">' + escudo(cl, 80) + '<span class="n">' + esc(cl.nombre) + '</span></a></td><td>' + r.pj + '</td><td>' + r.pg + '</td><td>' + r.pp + '</td>' +
+        return '<tr><td class="pos">' + r.pos + '</td><td><a class="club-c" href="club.html?id=' + r.id + '">' + escudo(cl, 80) + '<span class="n">' + esc(r.nombre || cl.nombre) + '</span></a></td><td>' + r.pj + '</td><td>' + r.pg + '</td><td>' + r.pp + '</td>' +
           '<td class="oc-m">' + r.pf + '</td><td class="oc-m">' + r.pc + '</td><td>' + (r.dif > 0 ? '+' : '') + r.dif + '</td><td class="pts">' + r.pts + '</td>' +
           (limite ? '' : '<td class="oc-m racha">' + r.racha.map(function (x) { return '<i class="' + x + '" title="' + (x === 'G' ? 'Ganó' : 'Perdió') + '">' + x + '</i>'; }).join('') + '</td>') + '</tr>';
       }).join('') + '</tbody></table></div>';
@@ -377,14 +377,15 @@
     var hoy = d.hoy || hoyISO();
     var ps = d.partidos.filter(function (p) { return p.l === id || p.v === id; });
     var prox = ps.filter(function (p) { return !jugado(p) && p.fecha >= hoy; }).slice(0, 4), res = ps.filter(jugado).slice(-6).reverse();
-    var pos = d.categorias.map(function (k) { var r = (k.tabla || []).filter(function (x) { return x.id === id; })[0]; return r ? { c: k, r: r } : null; }).filter(Boolean);
+    var pos = [];
+    d.categorias.forEach(function (k) { (k.tabla || []).filter(function (x) { return x.id === id; }).forEach(function (r) { pos.push({ c: k, r: r }); }); });
     var dato = function (et, v) { return v ? '<div><b>' + et + '</b>' + v + '</div>' : ''; };
     return cabPagina(c.nombre, c.fundacion ? 'Fundado en ' + esc(c.fundacion) : '', ' / <a href="clubes.html">Clubes</a>') +
       '<section class="seccion"><div class="contenedor"><div class="ficha-club">' + escudo(c, 500) + '<div>' + (c.descripcion ? '<div class="prosa">' + parrafos(c.descripcion) + '</div>' : '') +
       '<div class="datos-club">' + dato('Gimnasio', esc(c.recinto) + (c.direccion ? '<br><span class="muted">' + esc(c.direccion) + '</span>' : '')) + dato('Presidencia', esc(c.presidente)) +
       dato('Correo', c.correo ? '<a href="mailto:' + esc(c.correo) + '">' + esc(c.correo) + '</a>' : '') + dato('Teléfono', c.telefono ? '<a href="tel:' + esc(String(c.telefono).replace(/\s/g, '')) + '">' + esc(c.telefono) + '</a>' : '') +
       dato('Redes', (c.instagram ? '<a href="' + url(c.instagram) + '" target="_blank" rel="noopener">Instagram</a> ' : '') + (c.facebook ? '<a href="' + url(c.facebook) + '" target="_blank" rel="noopener">Facebook</a>' : '')) + '</div>' +
-      (pos.length ? '<div class="datos-club">' + pos.map(function (x) { return '<div><b>' + esc(x.c.nombre) + '</b><span style="font-family:var(--t-titulo);font-size:1.6rem;font-weight:800;color:var(--azul)">' + x.r.pos + '° lugar</span> · ' + x.r.pts + ' pts (' + x.r.pg + 'G ' + x.r.pp + 'P)</div>'; }).join('') + '</div>' : '') +
+      (pos.length ? '<div class="datos-club">' + pos.map(function (x) { return '<div><b>' + esc(x.c.nombre) + (x.r.equipo ? ' · Equipo ' + esc(x.r.equipo) : '') + '</b><span style="font-family:var(--t-titulo);font-size:1.6rem;font-weight:800;color:var(--azul)">' + x.r.pos + '° lugar</span> · ' + x.r.pts + ' pts (' + x.r.pg + 'G ' + x.r.pp + 'P)</div>'; }).join('') + '</div>' : '') +
       '</div></div>' +
       '<div class="grid g2" style="gap:40px;margin-top:56px;align-items:start"><div><h2>Próximos partidos</h2>' + (prox.length ? '<div class="partidos compacta">' + prox.map(function (p) { return tarjetaPartido(p, hoy, { cat: true }); }).join('') + '</div>' : vacio('Sin partidos programados.')) + '</div>' +
       '<div><h2>Últimos resultados</h2>' + (res.length ? '<div class="partidos compacta">' + res.map(function (p) { return tarjetaPartido(p, hoy, { cat: true }); }).join('') + '</div>' : vacio('Aún sin resultados.')) + '</div></div></div></section>';
