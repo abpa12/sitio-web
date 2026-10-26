@@ -162,6 +162,8 @@ table.t tr.anulado td{color:var(--tinta-3);text-decoration:line-through}
 /* ── Login / consulta ── */
 .portada{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:36px 16px;background:linear-gradient(180deg,var(--cielo) 0,var(--fondo) 340px)}
 .portada .logo{width:130px;height:130px;border-radius:24px;background:#fff;object-fit:contain;padding:6px;box-shadow:0 6px 24px rgba(0,0,40,.14)}
+.portada a img.logo{transition:transform .15s}
+.portada a:hover img.logo{transform:scale(1.04)}
 .portada h1{font-size:22px;text-align:center;margin:14px 0 4px;color:var(--prim)}
 .portada .lema{color:var(--tinta-2);text-align:center;margin-bottom:22px}
 .acceso{width:100%;max-width:440px}
@@ -241,7 +243,7 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
 <body>
   <!-- ═══════════ Ingreso ═══════════ -->
   <section id="portada" class="portada">
-    <img class="logo" src="../assets/img/logo-96.png" alt="Logo ABPA">
+    <a href="https://www.abpa.cl/" target="_top" title="Ir al sitio de la ABPA"><img class="logo" src="../assets/img/logo-96.png" alt="Logo ABPA · ir al sitio"></a>
     <h1>Asociación de Básquetbol<br>Punta Arenas</h1>
     <div class="lema">Panel de administración del sitio web</div>
     <div class="acceso card">
@@ -259,7 +261,7 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
   <section id="app" class="oculto">
     <header class="top">
       <div class="top-in">
-        <img src="../assets/img/logo-96.png" alt="">
+        <a href="https://www.abpa.cl/" target="_top" title="Ir al sitio de la ABPA" style="display:flex"><img src="../assets/img/logo-96.png" alt="Ir al sitio"></a>
         <div class="marca">ABPA<small>Panel del sitio web</small></div>
         <div class="usuario" id="u-cuenta" role="button" tabindex="0" title="Mi cuenta: cambiar clave"><b id="u-nombre"></b><span id="u-rol"></span><small>⚙ Mi cuenta y clave</small></div>
         <button class="salir" id="btn-salir" type="button">Salir</button>
