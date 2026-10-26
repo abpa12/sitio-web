@@ -68,6 +68,9 @@ button,input,select,textarea{font:inherit;color:inherit}
 .menu a{padding:9px 11px;border-radius:10px;text-decoration:none;color:var(--tinta-2);font-weight:600;font-size:.93rem}
 .menu a:hover{background:var(--azul-cl);color:var(--azul-os)}
 .menu a.activo{color:var(--azul);background:var(--azul-cl)}
+.menu a.menu-turno{margin-left:10px;padding:8px 16px;font-size:.9rem;color:var(--azul-noche);background:var(--amarillo);box-shadow:0 4px 12px rgba(255,204,0,.35)}
+.menu a.menu-turno:hover{background:#ffd633;color:var(--azul-noche)}
+@media (max-width:1180px) and (min-width:1041px){.menu a{padding:9px 8px;font-size:.88rem}.marca span{display:none}}
 .menu-btn{display:none;margin-left:auto;background:none;border:0;width:44px;height:44px;border-radius:10px;cursor:pointer}
 .menu-btn span{display:block;width:22px;height:2px;background:var(--tinta);margin:5px auto;border-radius:2px;transition:transform .2s,opacity .2s}
 .menu-btn[aria-expanded=true] span:nth-child(1){transform:translateY(7px) rotate(45deg)}
@@ -78,6 +81,7 @@ button,input,select,textarea{font:inherit;color:inherit}
   .menu{position:fixed;inset:74px 0 auto 0;background:#fff;flex-direction:column;align-items:stretch;padding:12px 16px 20px;gap:2px;border-bottom:1px solid var(--borde);box-shadow:0 18px 30px rgba(0,0,0,.08);transform:translateY(-8px);opacity:0;pointer-events:none;transition:.18s;max-height:calc(100vh - 74px);overflow:auto}
   .menu.abierto{transform:none;opacity:1;pointer-events:auto}
   .menu a{padding:13px 12px;font-size:1.02rem}
+  .menu a.menu-turno{margin:10px 0 0;justify-content:center;padding:13px 16px}
 }
 
 /* ── Portada (bandera de Magallanes: cielo azul, Cruz del Sur y cordillera amarilla) ── */

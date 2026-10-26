@@ -84,7 +84,8 @@
     $('#cab').outerHTML = '<a class="saltar" href="#contenido">Saltar al contenido</a><header class="cab" id="cab"><div class="contenedor cab-in">' +
       '<a class="marca" href="index.html"><img src="assets/img/logo-96.png" alt="" width="50" height="50"><div><b>' + SIGLA + '</b><span>Asociación de Básquetbol<br>Punta Arenas</span></div></a>' +
       '<button class="menu-btn" aria-label="Abrir menú" aria-expanded="false" aria-controls="menu"><span></span><span></span><span></span></button>' +
-      '<nav class="menu" id="menu" aria-label="Principal">' + NAV.map(function (n) { return '<a href="' + n[1] + '"' + (n[0] === activo ? ' class="activo" aria-current="page"' : '') + '>' + n[2] + '</a>'; }).join('') + '</nav></div></header>';
+      '<nav class="menu" id="menu" aria-label="Principal">' + NAV.map(function (n) { return '<a href="' + n[1] + '"' + (n[0] === activo ? ' class="activo" aria-current="page"' : '') + '>' + n[2] + '</a>'; }).join('') +
+      '<a class="btn btn-amarillo menu-turno" href="turno/" rel="nofollow">' + ico('balon') + ' Ingreso turno</a></nav></div></header>';
     var btn = $('.menu-btn'), menu = $('#menu');
     btn.onclick = function () { var ab = menu.classList.toggle('abierto'); btn.setAttribute('aria-expanded', ab); };
     $$('a', menu).forEach(function (a) { a.addEventListener('click', function () { menu.classList.remove('abierto'); btn.setAttribute('aria-expanded', 'false'); }); });
