@@ -451,6 +451,15 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
   }
 
   // ════════════════ CONFIGURACIÓN ════════════════
+  /** El nombre se muestra en el panel y queda como responsable en los informes: debe ser nombre y apellido reales. */
+  function errorNombre(nombre, usuario) {
+    var n = String(nombre || '').trim().replace(/\s+/g, ' ');
+    if (/\d/.test(n)) return 'Escribe el nombre y apellido sin números (ej: Paula González).';
+    if (usuario && n.toLowerCase() === String(usuario).trim().toLowerCase()) return 'El nombre no puede ser igual al usuario: escribe el nombre y apellido de la persona.';
+    var partes = n.split(' ').filter(function (x) { return x.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, '').length >= 2; });
+    if (partes.length < 2) return 'Escribe nombre y apellido (al menos dos palabras, ej: Paula González).';
+    return '';
+  }
   function vistaConfig(v) {
     var d = S.datos, c = d.config;
     var h = '<div class="cab-vista"><div><h2>Configuración</h2><p>Sesión de ' + esc(d.sesion.nombre) + ' · ' + esc(d.sesion.rolNombre) + '</p></div></div>' +
@@ -471,7 +480,7 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
       '<button class="btn prim full">Guardar</button></form></div>' +
       '<div class="card solo-admin"><h3 style="margin-bottom:12px">Usuarios del panel</h3><div id="usuarios"><div class="vacio">Cargando…</div></div>' +
       '<form class="form f2" id="f-usr" style="margin-top:14px"><label class="campo"><span>Usuario</span><input class="inp" name="Usuario" required placeholder="ej: comunicaciones"></label>' +
-      '<label class="campo"><span>Nombre</span><input class="inp" name="Nombre" required></label>' +
+      '<label class="campo"><span>Nombre y apellido</span><input class="inp" name="Nombre" required placeholder="ej: Paula González" autocomplete="off"></label>' +
       '<label class="campo"><span>Rol</span><select class="inp" name="Rol"><option value="editor">Editor (publica contenidos y resultados)</option><option value="consulta">Solo consulta</option><option value="turno">Turno (solo informes de partidos)</option><option value="admin">Administrador (todo)</option></select></label>' +
       '<label class="campo"><span>Clave (nueva o para restablecer)</span><input class="inp" name="clave" type="text" placeholder="mínimo 8 caracteres"></label>' +
       '<label class="full" style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="Activo" checked> Usuario activo</label>' +
@@ -505,6 +514,8 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
     cargarUsuarios();
     $('#f-usr', v).onsubmit = function (e) {
       e.preventDefault(); var f = e.target;
+      var err = errorNombre(f.Nombre.value, f.Usuario.value);
+      if (err) { toast(err, 'error'); f.Nombre.focus(); return; }
       api('apiGuardarUsuario', S.token, { Usuario: f.Usuario.value, Nombre: f.Nombre.value, Rol: f.Rol.value, clave: f.clave.value, Activo: f.Activo.checked })
         .then(function (r) { toast(r.mensaje, 'ok'); f.reset(); cargarUsuarios(); }).catch(fallo);
     };
