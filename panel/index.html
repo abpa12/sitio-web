@@ -765,6 +765,7 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
       vals[k] = reg[k] != null && reg[k] !== '' ? reg[k] : (nuevo ? ((base || {})[k] != null ? base[k] : c[2] === 'date' ? hoy() : DEFECTOS[k]) : reg[k]);
     });
     var m = C.modal('<h3>' + (nuevo ? 'Nuevo/a ' : 'Editar ') + d.uno + '</h3>', '<form class="form f2" id="fr-reg">' + campos.map(function (c) { return campoHTML(c, vals[c[0]]); }).join('') + '</form>',
+      (!nuevo && hoja === 'Partidos' ? '<button class="btn peligro" data-del style="margin-right:auto">Eliminar partido</button>' : '') +
       '<button class="btn" data-no>Cancelar</button><button class="btn prim" data-ok>Guardar</button>', { ancho: hoja === 'Noticias' || hoja === 'Clubes' });
     var f = $('#fr-reg', m);
     activarFotos(m);
@@ -773,6 +774,10 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
       f.LocalID.onchange = function () { if (!f.Recinto.value) { var c = club(f.LocalID.value); f.Recinto.value = c.Recinto || ''; } };
     }
     $('[data-no]', m).onclick = m.cerrar;
+    var bdel = $('[data-del]', m);
+    if (bdel) bdel.onclick = function () {
+      eliminar('Partidos', reg.ID, (reg.Numero ? 'N° ' + reg.Numero + ' · ' : '') + club(reg.LocalID).Nombre + ' vs ' + club(reg.VisitaID).Nombre + ' (' + C.fechaCL(reg.Fecha) + ')');
+    };
     $('[data-ok]', m).onclick = function () {
       var datos = { ID: reg.ID || null };
       campos.forEach(function (c) { var el = f.elements[c[0]]; datos[c[0]] = c[2] === 'sino' ? (el.checked ? 'SI' : 'NO') : el.value; });
