@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Panel · ABPA</title>
   <link rel="icon" type="image/png" href="../assets/img/favicon.png">
-  <script src="../assets/config.js?v=20261020a"></script>
+  <script src="../assets/config.js?v=20261026a"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -228,6 +228,8 @@ table.t tr.anulado td{color:var(--tinta-3);text-decoration:line-through}
 @media print{.top,.nav,.btn,.btns{display:none!important}main{padding:0}.card{box-shadow:none}}
 body.rol-consulta .solo-edita{display:none!important}
 body:not(.rol-admin) .solo-admin{display:none!important}
+body:not(.rol-admin):not(.rol-turno) .nav-turnos{display:none!important}
+body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:none!important}
 </style>
 
 </head>
@@ -262,6 +264,7 @@ body:not(.rol-admin) .solo-admin{display:none!important}
       <button data-vista="inicio" class="activo">Inicio</button>
       <button data-vista="partidos">Partidos <span class="nav-badge oculto" id="badge-partidos"></span></button>
       <button data-vista="tabla">Posiciones</button>
+      <button data-vista="turnos" class="nav-turnos">Informes de turno <span class="nav-badge oculto" id="badge-turnos"></span></button>
       <button data-vista="clubes">Clubes</button>
       <button data-vista="categorias">Categorías</button>
       <button data-vista="noticias">Noticias</button>
@@ -279,6 +282,7 @@ body:not(.rol-admin) .solo-admin{display:none!important}
   <div id="toast"></div>
   <div id="cargando" class="cargando oculto"></div>
 
+  <script>window.ABPA_IMG = { logo: "../assets/img/logo-400.png", bandera: "../assets/img/bandera-magallanes.png" };</script>
   <script>
 /* Conecta el panel con el sistema (Google Apps Script) usando la URL de assets/config.js */
 (function () {
@@ -301,8 +305,8 @@ body:not(.rol-admin) .solo-admin{display:none!important}
       .catch(function () {
         clearTimeout(t);
         if (intento < 4) { setTimeout(function () { llamar(fn, args, ok, ko, intento + 1, rid); }, 1000 * intento); return; }
-        if (ko) ko(new Error(LECTURA.test(fn) ? 'No se pudo conectar con el sistema. Revisa tu conexión e intenta nuevamente.'
-          : 'No se recibió confirmación del sistema. Antes de reintentar, revisa si el cambio quedó guardado.'));
+        if (ko) { var er = new Error(LECTURA.test(fn) ? 'No se pudo conectar con el sistema. Revisa tu conexión e intenta nuevamente.'
+          : 'No se recibió confirmación del sistema. Antes de reintentar, revisa si el cambio quedó guardado.'); er.red = true; ko(er); }
       });
   }
   function crear(ok, ko) {
@@ -346,7 +350,7 @@ body:not(.rol-admin) .solo-admin{display:none!important}
           carga(-1);
           var msg = String((e && e.message) || e).replace(/^(Error|Exception):\s*/, '');
           if (msg.indexOf('SESION:') >= 0) { msg = msg.replace(/^.*SESION:\s*/, ''); salir(true); }
-          reject(new Error(msg));
+          var er = new Error(msg); er.red = !!(e && e.red); reject(er);
         })[fn].apply(null, args);
     });
   }
@@ -410,7 +414,10 @@ body:not(.rol-admin) .solo-admin{display:none!important}
     $('#portada').classList.add('oculto');
     $('#app').classList.remove('oculto');
     if (window.ABPA_PANEL) window.ABPA_PANEL.alEntrar();
-    irA(S.clavePorDefecto ? 'config' : (S.vista || 'inicio'));
+    var rol = r.datos.sesion.rol, ini = S.vista || 'inicio';
+    if (rol === 'turno' && ini !== 'turnos' && ini !== 'config') ini = 'turnos';
+    if (rol !== 'turno' && rol !== 'admin' && ini === 'turnos') ini = 'inicio';
+    irA(S.clavePorDefecto ? 'config' : ini);
     if (S.clavePorDefecto) toast('Estás usando la clave provisoria: cámbiala ahora.', 'error');
   }
   function salir(silencioso) {
@@ -463,7 +470,7 @@ body:not(.rol-admin) .solo-admin{display:none!important}
       '<div class="card solo-admin"><h3 style="margin-bottom:12px">Usuarios del panel</h3><div id="usuarios"><div class="vacio">Cargando…</div></div>' +
       '<form class="form f2" id="f-usr" style="margin-top:14px"><label class="campo"><span>Usuario</span><input class="inp" name="Usuario" required placeholder="ej: comunicaciones"></label>' +
       '<label class="campo"><span>Nombre</span><input class="inp" name="Nombre" required></label>' +
-      '<label class="campo"><span>Rol</span><select class="inp" name="Rol"><option value="editor">Editor (publica contenidos y resultados)</option><option value="consulta">Solo consulta</option><option value="admin">Administrador (todo)</option></select></label>' +
+      '<label class="campo"><span>Rol</span><select class="inp" name="Rol"><option value="editor">Editor (publica contenidos y resultados)</option><option value="consulta">Solo consulta</option><option value="turno">Turno (solo informes de partidos)</option><option value="admin">Administrador (todo)</option></select></label>' +
       '<label class="campo"><span>Clave (nueva o para restablecer)</span><input class="inp" name="clave" type="text" placeholder="mínimo 8 caracteres"></label>' +
       '<label class="full" style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="Activo" checked> Usuario activo</label>' +
       '<button class="btn prim full">Guardar usuario</button></form></div></div>';
@@ -606,7 +613,7 @@ body:not(.rol-admin) .solo-admin{display:none!important}
   var DEF = {
     Partidos: {
       uno: 'partido', campos: function () {
-        return [['CategoriaID', 'Categoría', 'select', opcCats(), 1], ['Fase', 'Fecha o fase (ej: Fecha 3, Semifinal)', 'text'], ['Fecha', 'Día', 'date'], ['Hora', 'Hora', 'time'],
+        return [['CategoriaID', 'Categoría', 'select', opcCats(), 1], ['Fase', 'Fecha o fase (ej: Fecha 3, Semifinal)', 'text'], ['Numero', 'N° de partido (correlativo único; vacío = se asigna el siguiente)', 'number'], ['Fecha', 'Día', 'date'], ['Hora', 'Hora', 'time'],
           ['LocalID', 'Local', 'select', opcClubes()], ['VisitaID', 'Visita', 'select', opcClubes()], ['Recinto', 'Gimnasio / cancha', 'text', null, 1],
           ['Estado', 'Estado', 'select', D.estados], ['PuntosLocal', 'Puntos local', 'number'], ['PuntosVisita', 'Puntos visita', 'number'],
           ['Observacion', 'Observación (opcional, se ve en el sitio: ej. «Con alargue», «Cambio de cancha»)', 'text', null, 1],
@@ -815,7 +822,7 @@ body:not(.rol-admin) .solo-admin{display:none!important}
       ? '<input class="inp num" data-pl type="number" min="0" value="' + esc(pl) + '" aria-label="Puntos ' + esc(L.Nombre) + '"> – <input class="inp num" data-pv type="number" min="0" value="' + esc(pv) + '" aria-label="Puntos ' + esc(V.Nombre) + '">'
       : (jugado ? esc(pl) + ' – ' + esc(pv) : /^W\.O/.test(p.Estado) ? 'W.O.' : '<span class="muted" style="font-size:13px;font-weight:600">vs</span>');
     var estados = D.estados.map(function (e) { return '<option' + (e === (p.Estado || 'Programado') ? ' selected' : '') + '>' + e + '</option>'; }).join('');
-    return '<div class="pt' + (sinResultado(p) ? ' pend' : '') + '" data-pid="' + p.ID + '"><div class="cuando"><b>' + C.fechaCL(p.Fecha) + '</b>' + (p.Hora ? p.Hora + ' h' : 'Hora por definir') + '</div>' +
+    return '<div class="pt' + (sinResultado(p) ? ' pend' : '') + '" data-pid="' + p.ID + '"><div class="cuando"><b>' + C.fechaCL(p.Fecha) + '</b>' + (p.Hora ? p.Hora + ' h' : 'Hora por definir') + (p.Numero ? '<span class="muted"> · N° ' + p.Numero + '</span>' : '') + '</div>' +
       '<div class="vs"><div class="eq' + (gL ? ' gana' : '') + '">' + logo(L, 30) + '<span>' + esc(L.Nombre) + '</span></div><div class="marc">' + marc + '</div><div class="eq v' + (gV ? ' gana' : '') + '"><span>' + esc(V.Nombre) + '</span>' + logo(V, 30) + '</div></div>' +
       '<div class="acc">' + (editable && C.puede() ? '<select class="inp" data-est>' + estados + '</select><button class="btn chico prim" data-guardar>Guardar</button>' : '<span class="badge ' + (jugado || /^W/.test(p.Estado) ? 'b-ok' : p.Estado === 'Programado' || !p.Estado ? 'b-azul' : 'b-parcial') + '">' + esc(p.Estado || 'Programado') + '</span>') +
       '<button class="btn chico solo-edita" data-editar="Partidos:' + p.ID + '" title="Editar">✎</button></div>' +
@@ -1057,6 +1064,623 @@ body:not(.rol-admin) .solo-admin{display:none!important}
   V.inicio = vistaInicio; V.partidos = vistaPartidos; V.tabla = vistaTabla; V.clubes = vistaClubes; V.categorias = vistaCategorias;
   V.noticias = vistaNoticias; V.eventos = vistaEventos; V.galeria = vistaGaleria; V.documentos = vistaDocumentos; V.mensajes = vistaMensajes; V.textos = vistaTextos;
   window.ABPA_PANEL = { alEntrar: refrescarBadges };
+})();
+</script>
+
+  <style>
+/* ═══ Módulo Informe de turno ═══ */
+.tn .inp{min-height:46px}
+.tn-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.tn-kpis .card{margin-top:0!important}
+.tn-kpis .kpi{padding:12px 12px}
+.tn-kpis .kpi .et{font-size:11px;line-height:1.25}
+.tn-kpis .kpi .val{font-size:24px}
+.tn-kpis .kpi .det{font-size:11px}
+.tn-tabs{margin-bottom:16px;max-width:100%;overflow-x:auto}
+.tn-tabs button{white-space:nowrap}
+.tn-net{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:99px;background:var(--verde-bg);color:var(--verde)}
+.tn-net i{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
+.tn-net.off{background:var(--ambar-bg);color:var(--ambar)}
+.tn-m{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--borde)}
+.tn-m:first-child{border-top:0}
+.tn-n{font-size:22px;font-weight:800;color:var(--prim);min-width:2.2ch;font-variant-numeric:tabular-nums}
+.tn-vs{font-weight:700}
+.tn-vs i{font-style:normal;color:var(--naranja);padding:0 6px}
+.tn-sub{display:flex;gap:6px 10px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--tinta-3);margin-top:3px}
+@media (max-width:560px){.tn-m{grid-template-columns:auto 1fr}.tn-m .tn-acc{grid-column:1/-1}.tn-m .tn-acc .btn{width:100%}}
+.tn-acc{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center}
+.tn-hero{background:var(--prim);color:#fff;border-radius:12px;border-bottom:4px solid var(--amarillo);padding:16px;display:grid;gap:6px;margin-bottom:16px}
+.tn-hero .t{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;font-size:13px}
+.tn-hero .n{background:var(--amarillo);color:#2a2200;font-weight:800;border-radius:99px;padding:3px 11px}
+.tn-hero .eq{font-size:24px;font-weight:800;line-height:1.15;text-transform:uppercase}
+.tn-hero .eq i{font-style:normal;color:var(--amarillo);padding:0 8px}
+.tn-hero small{opacity:.9}
+.tn-sec{margin-bottom:16px}
+.tn-sec h3{padding-bottom:10px;margin-bottom:14px;border-bottom:1px solid var(--borde);display:flex;gap:10px;align-items:center}
+.tn-sec h3 em{font-style:normal;font-weight:500;font-size:12px;color:var(--tinta-3)}
+.tn-score{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:560px){.tn-score{grid-template-columns:1fr}}
+.tn-sc{background:#f7f8ff;border:1px solid var(--borde);border-radius:12px;padding:12px;display:grid;gap:8px}
+.tn-sc b{font-size:13.5px;overflow-wrap:anywhere}
+.tn-step{display:grid;grid-template-columns:52px 1fr 52px;gap:8px}
+.tn-step button{height:54px;border-radius:10px;border:1px solid var(--gris-2);background:#fff;font-size:26px;font-weight:700;cursor:pointer}
+.tn-step button:active{background:var(--prim-bg)}
+.tn-step input{height:54px;text-align:center;font-size:30px;font-weight:800;border:1px solid var(--gris-2);border-radius:10px;width:100%;min-width:0;font-variant-numeric:tabular-nums}
+.tn-chk{display:flex;gap:10px;align-items:flex-start;padding:12px;border:1px solid var(--borde);border-radius:10px;background:#fafbff;cursor:pointer;margin-top:10px}
+.tn-chk input{width:20px;height:20px;margin-top:2px;flex:none}
+.tn-chk.on{border-color:var(--naranja);background:var(--ambar-bg)}
+.tn-der{margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--prim-bg);color:var(--prim);font-weight:600}
+.tn-der.wo{background:var(--ambar-bg);color:var(--ambar)}
+.tn-errs{background:var(--rojo-bg);color:var(--rojo);border:1px solid #f0c3bf;border-radius:12px;padding:12px 16px;margin-bottom:16px}
+.tn-errs ul{margin:6px 0 0;padding-left:20px}
+input.mal,select.mal,textarea.mal{border-color:var(--rojo)!important;background:var(--rojo-bg)!important}
+.tn-foto{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.tn-foto img{width:110px;height:110px;object-fit:cover;border-radius:10px;border:1px solid var(--borde)}
+.tn-sum{display:grid;gap:12px}
+.tn-big{text-align:center;font-size:24px;font-weight:800;text-transform:uppercase;padding:14px;border-radius:12px;background:#f7f8ff;border:1px solid var(--borde)}
+.tn-big b{color:var(--prim);padding:0 8px}
+.tn-kv{display:grid;grid-template-columns:8.5em 1fr;gap:5px 12px;font-size:13.5px;margin:0}
+.tn-kv dt{color:var(--tinta-3)}
+.tn-kv dd{margin:0;overflow-wrap:anywhere}
+.tn-flt{display:grid;grid-template-columns:1fr 1fr 1.4fr auto;gap:12px;align-items:end}
+@media (max-width:760px){.tn-flt{grid-template-columns:1fr 1fr}}
+.tn-rep{display:grid;grid-template-columns:52px 1fr auto;gap:6px 14px;padding:14px 0;border-top:1px solid var(--borde);align-items:center}
+.tn-rep:first-child{border-top:0}
+.tn-res{font-size:19px;font-weight:800;text-transform:uppercase;line-height:1.2}
+.tn-res b{color:var(--prim);padding:0 6px}
+@media (max-width:640px){.tn-rep{grid-template-columns:42px 1fr}.tn-rep .tn-acc{grid-column:1/-1;justify-content:flex-start}}
+.tn-le{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--borde)}
+.tn-le:first-child{border-top:0}
+.tn-le label{display:flex;gap:6px;align-items:center;font-size:12.5px;white-space:nowrap}
+@media (max-width:560px){.tn-le{grid-template-columns:1fr 1fr}.tn-le .inp{grid-column:1/-1}}
+.tn-log{list-style:none;margin:0;padding:0}
+.tn-log li{padding:8px 0;border-top:1px solid var(--borde);display:flex;gap:12px;flex-wrap:wrap}
+.tn-log li:first-child{border-top:0}
+.tn-log time{color:var(--tinta-3);font-size:12.5px;min-width:9.5em}
+.tn-pend{background:var(--ambar-bg);border:1px solid #f2cf8f;border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:13.5px}
+.tn-papel{overflow-x:auto}
+</style>
+<style id="tn-acta-css">
+/* Hoja del informe (pantalla e impresión) */
+.acta{background:#fff;color:#111;border:1px solid #cfd3e6;border-radius:4px;padding:26px 28px;font-family:Arial,Helvetica,sans-serif;min-width:600px;max-width:780px;margin:0 auto;font-size:12px;line-height:1.35}
+.acta *{box-sizing:border-box}
+.acta .ah{display:grid;grid-template-columns:78px 1fr 78px;align-items:center;gap:14px;border-bottom:2px solid #111;padding-bottom:12px}
+.acta .ah img{width:100%;height:auto;display:block}
+.acta .at{text-align:center}
+.acta .at b{display:block;font-size:14px;letter-spacing:.02em}
+.acta .at u{display:block;text-decoration:none;font-size:18px;font-weight:700;margin-top:6px;letter-spacing:.06em}
+.acta .ag{display:grid;grid-template-columns:1fr 1fr;gap:8px 26px;margin-top:16px}
+.acta .ag.uno{grid-template-columns:1fr}
+.acta .ag>*{min-width:0}
+.acta .af{display:flex;align-items:center;gap:8px;min-width:0}
+.acta .af>i.largo{min-width:0;overflow-wrap:anywhere}
+.acta .af>span{font-weight:700;font-size:10.5px;min-width:84px}
+.acta .af>i{font-style:normal;border:1.5px solid #111;padding:3px 10px;min-width:60px;text-align:center}
+.acta .af>i.largo{flex:1;text-align:left}
+.acta .af>u{text-decoration:none;border-bottom:1px solid #111;flex:1;padding:2px 0;min-height:18px}
+.acta .al{margin-top:14px;font-size:10.5px;font-weight:700}
+.acta .ab{border:1.5px solid #111;min-height:84px;padding:8px;margin-top:5px;white-space:pre-wrap}
+.acta .aw{margin:10px 0 0;font-size:11px}
+.acta .afoto{max-height:170px;max-width:100%;border:1px solid #999;margin-top:6px;display:block}
+.acta .as{margin-top:20px;border-top:2px solid #111;padding-top:6px;font-size:10.5px}
+.acta .as b{display:block}
+.acta .as .nm{font:italic 22px 'Brush Script MT','Segoe Script','Lucida Handwriting',cursive;margin:6px 0 2px}
+.acta .as small{color:#555;font-size:9.5px}
+</style>
+<script>
+(function () {
+  'use strict';
+  var C = window.ABPA;
+  if (!C) return;
+  var $ = C.$, $$ = C.$$, esc = C.esc;
+  var IMG = window.ABPA_IMG || { logo: '', bandera: '' };
+
+  var T = { d: null, v: null, tab: 'pend', form: null, filt: { serie: '', fase: '', q: '' }, adm: 'arbitros', todos: false, fotos: {}, log: null, flushing: false };
+
+  // ════════════════ Utilidades ════════════════
+  function cfg() { return (C.S.datos && C.S.datos.config) || {}; }
+  function usuario() { return C.S.datos.sesion.usuario; }
+  function esAdmin() { return C.S.datos && C.S.datos.sesion.rol === 'admin'; }
+  function activa() { return C.S.vista === 'turnos' && T.v; }
+  function offline() { return typeof navigator !== 'undefined' && navigator.onLine === false; }
+  function p2(n) { return (n < 10 ? '0' : '') + n; }
+  function ftMs(ms) { var d = new Date(ms); return p2(d.getDate()) + '/' + p2(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()); }
+  function ftEnvio(s) { var m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/); return m ? m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] : String(s || ''); }
+  function nuevoCid() { return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); }
+  function num(v) { if (v === '' || v == null) return null; var n = Number(v); return Number.isInteger(n) && n >= 0 ? n : NaN; }
+  function rel(fecha) {
+    var hoy = T.d ? T.d.hoy : '', f = new Date(hoy + 'T12:00:00');
+    function iso(o) { var x = new Date(f.getTime() + o * 864e5); return x.getFullYear() + '-' + p2(x.getMonth() + 1) + '-' + p2(x.getDate()); }
+    return fecha === hoy ? 'Hoy' : fecha === iso(1) ? 'Mañana' : fecha === iso(-1) ? 'Ayer' : C.fechaCL(fecha);
+  }
+  function fechaEtq(fase) { var m = String(fase || '').match(/^\s*fecha\s*(\d+)\s*$/i); return m ? ['FECHA N°', m[1]] : ['FASE', fase || '—']; }
+  function oficial(i) {
+    var wo = Number(cfg().MARCADOR_WO); if (isNaN(wo)) wo = 20;
+    if (i.wo === 'L') return [0, wo];
+    if (i.wo === 'V') return [wo, 0];
+    return [i.pl, i.pv];
+  }
+  function absUrl(u) { try { return new URL(u, document.baseURI).href; } catch (e) { return u; } }
+
+  // ════════════════ Cola de envío (funciona sin señal) ════════════════
+  function kCola() { return 'abpa_turnos_cola_' + usuario(); }
+  function kBorr() { return 'abpa_turnos_borrador_' + usuario(); }
+  function kCache() { return 'abpa_turnos_cache_' + usuario(); }
+  function lee(k, def) { try { var r = localStorage.getItem(k); return r ? JSON.parse(r) : def; } catch (e) { return def; } }
+  function escribe(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  function cola() { return lee(kCola(), []); }
+  function guardaCola(a) { if (!escribe(kCola(), a)) C.toast('No hay espacio en el teléfono para guardar el informe pendiente. Envíalo con señal.', 'error'); actualizarBadge(); }
+  function actualizarBadge() {
+    var b = document.getElementById('badge-turnos'); if (!b || !C.S.datos) return;
+    var n = cola().length; b.textContent = n; b.classList.toggle('oculto', !n);
+  }
+  function enCola(partidoId) { return cola().filter(function (x) { return x.payload.partidoId === partidoId; })[0]; }
+
+  var timerCola = null;
+  function programarCola() {
+    clearTimeout(timerCola);
+    if (!C.S.token || !cola().some(function (x) { return x.estado !== 'error'; })) return;
+    timerCola = setTimeout(function () { vaciarCola(); }, 20000);
+  }
+  /** Intenta enviar todo lo pendiente, uno por uno. Es seguro repetirlo: el servidor reconoce el mismo informe por su identificador. */
+  function vaciarCola(manual) {
+    if (T.flushing || !C.S.token || !C.S.datos) return Promise.resolve();
+    var items = cola().filter(function (x) { return manual ? true : x.estado !== 'error'; });
+    if (!items.length) return Promise.resolve();
+    if (offline()) { if (manual) C.toast('Sigues sin señal. El informe está guardado en este teléfono y se enviará solo.', 'error'); programarCola(); return Promise.resolve(); }
+    T.flushing = true;
+    var enviados = 0, fallos = 0;
+    function marca(cid, cambios) { var a = cola(); a.forEach(function (x) { if (x.cid === cid) Object.keys(cambios).forEach(function (k) { x[k] = cambios[k]; }); }); guardaCola(a); }
+    function uno(i) {
+      if (i >= items.length) return Promise.resolve();
+      var it = items[i];
+      marca(it.cid, { estado: 'enviando', error: '' }); if (activa()) pintar();
+      return new Promise(function (res) {
+        google.script.run.withSuccessHandler(function (r) { res({ ok: true, r: r }); }).withFailureHandler(function (e) { res({ ok: false, e: e }); }).apiTurnoEnviar(C.S.token, it.payload);
+      }).then(function (x) {
+        if (x.ok) { enviados++; guardaCola(cola().filter(function (y) { return y.cid !== it.cid; })); return uno(i + 1); }
+        var msg = String((x.e && x.e.message) || x.e || '').replace(/^(Error|Exception):\s*/, '');
+        var transitorio = (x.e && x.e.red) || /conexi|confirmaci|ocupado|procesando|sesi[oó]n|SESION/i.test(msg);
+        if (transitorio) { marca(it.cid, { estado: 'pendiente' }); fallos++; return Promise.resolve(); }
+        marca(it.cid, { estado: 'error', error: msg }); fallos++;
+        return uno(i + 1);
+      });
+    }
+    return uno(0).then(function () {
+      T.flushing = false;
+      if (enviados) { C.toast(enviados === 1 ? 'Informe enviado. Ya se ve en el sitio y en la tabla.' : enviados + ' informes enviados.', 'ok'); }
+      if (fallos && !enviados && manual) C.toast('No se pudo enviar todavía. Quedó guardado y se reintenta solo.', 'error');
+      return cargar().catch(function () { }).then(function () { if (activa()) pintar(); programarCola(); });
+    });
+  }
+
+  // ════════════════ Datos ════════════════
+  function cargar() {
+    return C.api('apiTurnoDatos', C.S.token, esAdmin() && T.todos).then(function (d) {
+      T.d = d; escribe(kCache(), d); actualizarBadge(); return d;
+    }, function (e) {
+      if (!T.d) { var c = lee(kCache(), null); if (c) { T.d = c; T.sinRed = true; } }
+      throw e;
+    });
+  }
+
+  // ════════════════ Pantalla principal ════════════════
+  function vistaTurnos(v) {
+    T.v = v; v.classList.add('tn');
+    v.onclick = clic; v.oninput = entrada; v.onchange = cambio;
+    if (!T.d) v.innerHTML = '<div class="vacio">Cargando…</div>';
+    else pintar();
+    cargar().then(function () { T.sinRed = false; if (activa()) pintar(); }).catch(function (e) {
+      if (!activa()) return;
+      if (T.d) { pintar(); C.toast('Sin conexión: se muestran los últimos datos guardados en este teléfono.', 'error'); } else C.fallo(e);
+    });
+    vaciarCola();
+  }
+
+  function pintar() {
+    if (!activa()) return;
+    var pend = cola().length;
+    var cab = '<div class="cab-vista"><div><h2>Informes de turno</h2><p>' + (T.form ? 'Completa el informe al terminar el partido.' : 'Elige tu partido, completa el informe y envíalo. El resultado se publica solo.') + '</p></div>' +
+      '<div class="tn-net ' + (offline() ? 'off' : '') + '"><i></i>' + (offline() ? 'Sin señal' + (pend ? ' · ' + pend + ' pendiente' + (pend > 1 ? 's' : '') : '') : pend ? pend + ' pendiente' + (pend > 1 ? 's' : '') + ' de envío' : 'En línea') + '</div></div>';
+    var cuerpo;
+    if (T.form) cuerpo = pForm();
+    else {
+      var tabs = [['pend', 'Por informar'], ['inf', 'Informes']].concat(esAdmin() ? [['adm', 'Administración']] : []);
+      cuerpo = '<div class="seg tn-tabs">' + tabs.map(function (t) { return '<button data-tn="tab" data-t="' + t[0] + '" class="' + (T.tab === t[0] ? 'activo' : '') + '">' + t[1] + '</button>'; }).join('') + '</div>' +
+        (T.tab === 'pend' ? pPend() : T.tab === 'inf' ? pInformes() : pAdmin());
+    }
+    T.v.innerHTML = cab + cuerpo;
+    if (T.form) derivado();
+    if (!T.form && T.tab === 'inf') listaInformes();
+    if (!T.form && T.tab === 'adm' && T.adm === 'log') cargarLog();
+  }
+
+  // ─── Por informar ───
+  function filaPartido(m, boton) {
+    return '<div class="tn-m"><div class="tn-n">' + esc(m.Numero) + '</div><div><div class="tn-vs">' + esc(m.Local) + '<i>vs</i>' + esc(m.Visita) + '</div>' +
+      '<div class="tn-sub"><span class="badge b-azul">' + esc(m.Serie) + '</span><span>' + esc(rel(m.Fecha)) + (m.Hora ? ' · ' + esc(m.Hora) + ' h' : '') + '</span>' + (m.Recinto ? '<span>' + esc(m.Recinto) + '</span>' : '') + (m.Fase ? '<span>' + esc(m.Fase) + '</span>' : '') +
+      (m.Estado && m.Estado !== 'Programado' ? '<span class="badge b-parcial">' + esc(m.Estado) + '</span>' : '') + '</div></div><div class="tn-acc">' + (boton || '') + '</div></div>';
+  }
+  function pPend() {
+    var d = T.d, mias = d.informes.filter(function (i) { return i.respUsuario === usuario(); }).length, pend = cola();
+    var lista = d.porInformar.filter(function (m) { return !enCola(m.ID); });
+    var hoy = lista.filter(function (m) { return m.Fecha === d.hoy; }).length;
+    return '<div class="tn-kpis">' +
+      '<div class="card kpi"><div class="et">De hoy sin informe</div><div class="val">' + hoy + '</div></div>' +
+      '<div class="card kpi"><div class="et">Enviados por ti</div><div class="val">' + mias + '</div></div>' +
+      '<div class="card kpi ' + (pend.length ? 'alerta' : '') + '"><div class="et">Sin enviar</div><div class="val">' + pend.length + '</div><div class="det">' + (pend.length ? 'Se envían solos' : 'Todo enviado') + '</div></div></div>' +
+      (pend.length ? '<div class="tn-pend"><b>Tienes ' + pend.length + ' informe' + (pend.length > 1 ? 's' : '') + ' sin enviar.</b> Quedaron guardados en este teléfono y se envían solos cuando vuelva la señal. Míralos en la pestaña «Informes».</div>' : '') +
+      '<div class="card"><div class="card-cab"><h3>Partidos por informar</h3>' +
+      (esAdmin() ? '<label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-tn="todos"' + (T.todos ? ' checked' : '') + '> Ver todos los partidos sin informe (cualquier fecha y estado)</label>' : '') + '</div>' +
+      (lista.length ? lista.map(function (m) { return filaPartido(m, '<button class="btn prim" data-tn="informar" data-id="' + m.ID + '">Informar</button>'); }).join('')
+        : '<div class="vacio">No hay partidos por informar en estos días (' + d.params.diasAtras + ' días atrás y ' + d.params.diasAdelante + ' adelante).<br>Si falta uno, avísale al administrador.</div>') + '</div>';
+  }
+
+  // ─── Formulario ───
+  function opcionesLista(lista, actual, ph) {
+    var existe = false;
+    var h = lista.map(function (x) { if (x.Nombre === actual) existe = true; return '<option value="' + esc(x.Nombre) + '"' + (x.Nombre === actual ? ' selected' : '') + '>' + esc(x.Nombre) + (x.Marca ? ' ★' : '') + '</option>'; }).join('');
+    if (actual && !existe) h = '<option value="' + esc(actual) + '" selected>' + esc(actual) + '</option>' + h;
+    return '<option value="">' + esc(ph) + '</option>' + h;
+  }
+  function iniciarForm(m, extra) {
+    var base = { inicio: '', fin: '', pl: '', pv: '', woL: false, woV: false, arb1: '', arb2: '', anot: '', crono: '', plan: '', obs: '', foto: '', tieneFoto: false, quitarFoto: false };
+    var guardado = (lee(kBorr(), {}) || {})[m.ID];
+    var f = { m: m, cid: nuevoCid(), editId: null, d: Object.assign(base, (extra && extra.d) || (!extra && guardado) || {}), errs: [] };
+    if (extra) { f.editId = extra.editId || null; if (extra.cid) f.cid = extra.cid; f.reemplaza = extra.reemplaza || null; }
+    T.form = f; pintar(); window.scrollTo(0, 0);
+  }
+  function guardarBorrador() {
+    var f = T.form; if (!f || f.editId || f.reemplaza) return;
+    var b = lee(kBorr(), {}) || {}; b[f.m.ID] = f.d; if (!escribe(kBorr(), b)) { var d2 = Object.assign({}, f.d, { foto: '' }); b[f.m.ID] = d2; escribe(kBorr(), b); }
+  }
+  function quitarBorrador(id) { var b = lee(kBorr(), {}) || {}; delete b[id]; escribe(kBorr(), b); }
+  function stepper(k, nombre) {
+    var d = T.form.d;
+    return '<div class="tn-sc"><b>' + esc(nombre) + '</b><div class="tn-step"><button type="button" data-tn="stp" data-k="' + k + '" data-d="-1" aria-label="Restar un punto">−</button>' +
+      '<input id="f-' + k + '" data-f="' + k + '" inputmode="numeric" pattern="[0-9]*" value="' + esc(d[k]) + '" aria-label="Puntos de ' + esc(nombre) + '"><button type="button" data-tn="stp" data-k="' + k + '" data-d="1" aria-label="Sumar un punto">+</button></div></div>';
+  }
+  function campo(k, et, tipo, extra) { return '<label class="campo"><span>' + et + '</span><input class="inp" id="f-' + k + '" data-f="' + k + '" type="' + (tipo || 'text') + '" value="' + esc(T.form.d[k]) + '" ' + (extra || '') + '></label>'; }
+  function selArb(k, et) { return '<label class="campo"><span>' + et + '</span><select class="inp" id="f-' + k + '" data-f="' + k + '">' + opcionesLista(T.d.arbitros, T.form.d[k], 'Selecciona…') + '</select></label>'; }
+  function pForm() {
+    var f = T.form, m = f.m, d = f.d, fe = fechaEtq(m.Fase), foto = d.foto || '';
+    return '<div class="btns" style="justify-content:space-between;margin-bottom:12px"><h3 style="font-size:18px">' + (f.editId ? 'Editar informe' : f.reemplaza ? 'Corregir informe' : 'Nuevo informe') + '</h3><button class="btn chico" data-tn="cancelar">Cancelar</button></div>' +
+      '<div class="tn-hero"><div class="t"><span class="n">Partido N° ' + esc(m.Numero) + '</span><span>' + esc(m.Serie) + ' · ' + esc(fe[0] === 'FASE' ? m.Fase : 'Fecha ' + fe[1]) + '</span></div>' +
+      '<div class="eq">' + esc(m.Local) + '<i>vs</i>' + esc(m.Visita) + '</div><small>' + esc(C.fechaCL(m.Fecha)) + (m.Hora ? ' · ' + esc(m.Hora) + ' h' : '') + (m.Recinto ? ' · ' + esc(m.Recinto) : '') + '</small></div>' +
+      '<div id="tn-errs"></div>' +
+      '<div class="card tn-sec"><h3>Horario</h3><div class="form f2">' + campo('inicio', 'Hora de inicio', 'time') + campo('fin', 'Hora de término', 'time') + '</div>' +
+      '<div class="btns" style="margin-top:10px"><button type="button" class="btn chico" data-tn="ahora" data-k="inicio">Inicio: ahora</button><button type="button" class="btn chico" data-tn="ahora" data-k="fin">Término: ahora</button></div></div>' +
+      '<div class="card tn-sec"><h3>Resultado</h3><div class="tn-score">' + stepper('pl', m.Local) + stepper('pv', m.Visita) + '</div>' +
+      '<label class="tn-chk ' + (d.woL ? 'on' : '') + '"><input type="checkbox" data-f="woL"' + (d.woL ? ' checked' : '') + '><span><b>' + esc(m.Local) + ' no se presentó o no cumplió el mínimo de jugadores</b><br><span class="muted small">Resultado oficial 0–' + (cfg().MARCADOR_WO || 20) + ' (W.O.). Si se alcanzó a jugar, deja el marcador como referencia.</span></span></label>' +
+      '<label class="tn-chk ' + (d.woV ? 'on' : '') + '"><input type="checkbox" data-f="woV"' + (d.woV ? ' checked' : '') + '><span><b>' + esc(m.Visita) + ' no se presentó o no cumplió el mínimo de jugadores</b><br><span class="muted small">Resultado oficial ' + (cfg().MARCADOR_WO || 20) + '–0 (W.O.).</span></span></label>' +
+      '<div id="tn-der" class="tn-der"></div></div>' +
+      '<div class="card tn-sec"><h3>Árbitros y mesa de control</h3><div class="form f2">' + selArb('arb1', 'Árbitro 1') + selArb('arb2', 'Árbitro 2') + '</div>' +
+      '<div class="form f3" style="margin-top:12px">' + campo('anot', 'Anotador', 'text', 'list="tn-mesa" autocomplete="off"') + campo('crono', 'Cronometrista', 'text', 'list="tn-mesa" autocomplete="off"') + campo('plan', 'Planillero', 'text', 'list="tn-mesa" autocomplete="off"') + '</div>' +
+      '<datalist id="tn-mesa">' + T.d.mesa.map(function (x) { return '<option value="' + esc(x.Nombre) + '">'; }).join('') + '</datalist></div>' +
+      '<div class="card tn-sec"><h3>Acta firmada <em>recomendado</em></h3><div class="tn-foto">' +
+      (foto ? '<img src="' + foto + '" alt="Foto del acta">' : (d.tieneFoto && !d.quitarFoto ? '<span class="badge b-ok">Ya tiene foto del acta</span>' : '')) +
+      '<div class="btns"><label class="btn" for="f-foto">' + (foto || (d.tieneFoto && !d.quitarFoto) ? 'Cambiar foto' : 'Sacar o subir foto') + '</label><input id="f-foto" type="file" accept="image/*" capture="environment" hidden>' +
+      (foto ? '<button type="button" class="btn peligro chico" data-tn="sinfoto">Quitar</button>' : (d.tieneFoto && !d.quitarFoto ? '<button type="button" class="btn peligro chico" data-tn="sinfoto">Quitar la foto actual</button>' : '')) + '</div></div>' +
+      '<p class="ayuda">En el celular se abre la cámara. La foto se reduce sola para que el envío sea liviano.</p></div>' +
+      '<div class="card tn-sec"><h3>Observaciones</h3><label class="campo"><textarea class="inp" id="f-obs" data-f="obs" maxlength="1000" placeholder="Sin observaciones">' + esc(d.obs) + '</textarea></label><div class="ayuda">' + esc(T.d.params.ayudaObs) + '</div></div>' +
+      '<div class="card tn-sec"><h3>Responsable del turno</h3><dl class="tn-kv"><dt>Nombre</dt><dd>' + esc(f.editId ? (f.respNombre || C.S.datos.sesion.nombre) : C.S.datos.sesion.nombre) + '</dd></dl><div class="ayuda">Se completa solo con tu usuario. La firma lleva tu nombre y la hora del envío.</div></div>' +
+      '<div class="btns"><button type="button" class="btn prim" style="flex:1 1 240px;min-height:50px;font-size:15px" data-tn="revisar">' + (f.editId ? 'Revisar y guardar cambios' : 'Revisar y enviar') + '</button></div>';
+  }
+  function derivado() {
+    var f = T.form, d = f.d, m = f.m, el = $('#tn-der', T.v); if (!el) return;
+    var wo = Number(cfg().MARCADOR_WO) || 20, a = num(d.pl), b = num(d.pv);
+    if (d.woL || d.woV) { el.className = 'tn-der wo'; el.innerHTML = 'Resultado oficial: ' + esc(m.Local) + ' ' + (d.woL ? 0 : wo) + ' – ' + (d.woL ? wo : 0) + ' ' + esc(m.Visita) + '<br><span class="small">En la tabla: el equipo que no se presentó suma 0 puntos.</span>'; return; }
+    if (a == null || b == null || isNaN(a) || isNaN(b) || a === b) { el.className = 'tn-der'; el.textContent = 'Ingresa los dos marcadores. No se permiten empates.'; return; }
+    var g = a > b; el.className = 'tn-der';
+    el.innerHTML = 'Gana ' + esc(g ? m.Local : m.Visita) + '. Puntos en la tabla: ' + esc(m.Local) + ' ' + (g ? 2 : 1) + ' · ' + esc(m.Visita) + ' ' + (g ? 1 : 2) + '.';
+  }
+  function validar(d, m) {
+    var e = [], wo = d.woL || d.woV, a = num(d.pl), b = num(d.pv);
+    if (d.woL && d.woV) e.push(['woL', 'Marca W.O. solo para un equipo.']);
+    if (isNaN(a)) e.push(['pl', 'El marcador de ' + m.Local + ' debe ser un número entero.']);
+    if (isNaN(b)) e.push(['pv', 'El marcador de ' + m.Visita + ' debe ser un número entero.']);
+    if (!wo) {
+      if (a == null) e.push(['pl', 'Falta el marcador de ' + m.Local + '.']);
+      if (b == null) e.push(['pv', 'Falta el marcador de ' + m.Visita + '.']);
+      if (a != null && b != null && !isNaN(a) && !isNaN(b) && a === b) e.push(['pv', 'El marcador no puede quedar empatado.']);
+    }
+    if (!d.inicio) e.push(['inicio', 'Falta la hora de inicio.']);
+    if (!d.fin) e.push(['fin', 'Falta la hora de término.']); else if (d.inicio && d.fin <= d.inicio) e.push(['fin', 'La hora de término debe ser posterior a la de inicio.']);
+    if (!d.arb1) e.push(['arb1', 'Selecciona el Árbitro 1.']);
+    if (!d.arb2) e.push(['arb2', 'Selecciona el Árbitro 2.']); else if (d.arb1 && d.arb1 === d.arb2) e.push(['arb2', 'El Árbitro 1 y el 2 no pueden ser la misma persona.']);
+    return e;
+  }
+  function payload(f) {
+    var d = f.d;
+    return { cid: f.cid, partidoId: f.m.ID, inicio: d.inicio, fin: d.fin, pl: d.pl === '' ? '' : Number(d.pl), pv: d.pv === '' ? '' : Number(d.pv), wo: d.woL ? 'L' : d.woV ? 'V' : '',
+      arb1: d.arb1, arb2: d.arb2, anot: d.anot, crono: d.crono, plan: d.plan, obs: d.obs, foto: d.foto ? { mime: 'image/jpeg', base64: d.foto.split(',')[1] } : null };
+  }
+  function revisar() {
+    var f = T.form, m = f.m, d = f.d, e = validar(d, m);
+    $$('.mal', T.v).forEach(function (x) { x.classList.remove('mal'); });
+    if (e.length) {
+      $('#tn-errs', T.v).innerHTML = '<div class="tn-errs" role="alert"><b>Revisa estos puntos antes de enviar</b><ul>' + e.map(function (x) { return '<li>' + esc(x[1]) + '</li>'; }).join('') + '</ul></div>';
+      e.forEach(function (x) { var el = $('#f-' + x[0], T.v); if (el) el.classList.add('mal'); });
+      $('#tn-errs', T.v).scrollIntoView({ behavior: 'smooth', block: 'center' }); return;
+    }
+    $('#tn-errs', T.v).innerHTML = '';
+    var wo = d.woL || d.woV, of = oficial({ wo: d.woL ? 'L' : d.woV ? 'V' : '', pl: Number(d.pl), pv: Number(d.pv) }), av = [];
+    if (!wo && (of[0] > 150 || of[1] > 150)) av.push('Hay un marcador de más de 150 puntos. Confirma que no hay un error al escribirlo.');
+    if (!d.foto && !(d.tieneFoto && !d.quitarFoto)) av.push('No adjuntaste la foto del acta firmada.');
+    if (!f.editId && offline()) av.push('Estás sin señal: el informe se guardará en este teléfono y se enviará solo cuando vuelva la conexión.');
+    if (f.editId && offline()) av.push('Para guardar cambios necesitas conexión.');
+    var verbo = f.editId ? 'guardar' : 'enviar';
+    var cuerpo = '<div class="tn-sum"><div class="tn-big">' + esc(m.Local) + '<b>' + of[0] + ' – ' + of[1] + '</b>' + esc(m.Visita) + '</div>' +
+      '<dl class="tn-kv"><dt>Partido</dt><dd>N° ' + esc(m.Numero) + ' · ' + esc(m.Serie) + (m.Fase ? ' · ' + esc(m.Fase) : '') + '</dd><dt>Horario</dt><dd>' + esc(d.inicio) + ' a ' + esc(d.fin) + '</dd>' +
+      '<dt>Árbitros</dt><dd>' + esc(d.arb1) + ' y ' + esc(d.arb2) + '</dd><dt>Mesa</dt><dd>' + esc([d.anot, d.crono, d.plan].filter(Boolean).join(' · ') || '—') + '</dd><dt>Observaciones</dt><dd>' + esc(d.obs || 'Sin observaciones') + '</dd></dl>' +
+      av.map(function (w) { return '<div class="aviso">' + esc(w) + '</div>'; }).join('') +
+      '<div class="ayuda" style="margin:0">Al ' + verbo + ', el resultado se publica de inmediato y la tabla de posiciones se recalcula.</div></div>';
+    var mo = C.modal('<h3>Revisa antes de ' + verbo + '</h3>', cuerpo, '<button class="btn" data-no>Volver a revisar</button><button class="btn prim" data-si style="min-width:160px">' + (f.editId ? 'Guardar cambios' : 'Enviar informe') + '</button>');
+    $('[data-no]', mo).onclick = function () { mo.cerrar(); };
+    $('[data-si]', mo).onclick = function () { mo.cerrar(); enviar(); };
+  }
+  function enviar() {
+    var f = T.form, p = payload(f), m = f.m;
+    if (f.editId) {
+      if (offline()) { C.toast('Para guardar cambios necesitas conexión.', 'error'); return; }
+      p.informeId = f.editId; p.quitarFoto = !!f.d.quitarFoto;
+      C.api('apiTurnoEditar', C.S.token, p).then(function (r) {
+        C.toast(r.mensaje, 'ok'); T.form = null; T.tab = 'inf'; return cargar();
+      }).then(function () { if (activa()) pintar(); }).catch(C.fallo);
+      return;
+    }
+    var a = cola().filter(function (x) { return x.cid !== (f.reemplaza || ''); });
+    a.push({ cid: p.cid, payload: p, match: m, creado: Date.now(), estado: 'pendiente', error: '' });
+    guardaCola(a); quitarBorrador(m.ID);
+    T.form = null; T.tab = 'inf'; pintar(); window.scrollTo(0, 0);
+    if (offline()) C.toast('Sin señal: el informe quedó guardado y se enviará solo cuando vuelva la conexión.', 'error');
+    vaciarCola();
+  }
+
+  // ─── Informes ───
+  function seriesInformes() { var s = {}; T.d.informes.forEach(function (i) { s[i.Serie] = 1; }); return Object.keys(s).sort(function (a, b) { return a.localeCompare(b, 'es'); }); }
+  function pInformes() {
+    var F = T.filt;
+    return '<div class="card" style="margin-bottom:16px"><div class="tn-flt">' +
+      '<label class="campo"><span>Serie</span><select class="inp" data-flt="serie"><option value="">Todas</option>' + seriesInformes().map(function (s) { return '<option' + (s === F.serie ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></label>' +
+      '<label class="campo"><span>Fecha / fase</span><input class="inp" data-flt="fase" value="' + esc(F.fase) + '" placeholder="Ej: Fecha 3"></label>' +
+      '<label class="campo"><span>Equipo, N° o responsable</span><input class="inp" data-flt="q" value="' + esc(F.q) + '" placeholder="Buscar…"></label>' +
+      '<button class="btn" data-tn="limpiar">Limpiar</button></div></div><div id="tn-res"></div>';
+  }
+  function itemCola(it) {
+    var p = it.payload, m = it.match, of = oficial({ wo: p.wo, pl: p.pl, pv: p.pv });
+    var estado = it.estado === 'enviando' ? '<span class="badge b-azul">Enviando…</span>' : it.estado === 'error' ? '<span class="badge b-deuda">No se pudo enviar</span>' : '<span class="badge b-parcial">Pendiente de envío</span>';
+    return '<div class="tn-rep"><div class="tn-n">' + esc(m.Numero) + '</div><div><div class="tn-res">' + esc(m.Local) + '<b>' + of[0] + ' : ' + of[1] + '</b>' + esc(m.Visita) + '</div>' +
+      '<div class="tn-sub"><span class="badge b-azul">' + esc(m.Serie) + '</span><span>' + esc(C.fechaCL(m.Fecha)) + '</span><span>Guardado en este teléfono ' + ftMs(it.creado) + '</span></div>' +
+      '<div class="tn-sub">' + estado + (it.error ? '<span style="color:var(--rojo)">' + esc(it.error) + '</span>' : '') + '</div></div>' +
+      '<div class="tn-acc">' + (it.estado === 'enviando' ? '' : '<button class="btn chico prim" data-tn="reintentar">Enviar ahora</button>') +
+      '<button class="btn chico" data-tn="corregir" data-cid="' + esc(it.cid) + '">Corregir</button><button class="btn chico peligro" data-tn="descartar" data-cid="' + esc(it.cid) + '">Descartar</button></div></div>';
+  }
+  function filaInforme(i) {
+    var of = oficial(i), wo = !!i.wo, lim = i.hasta;
+    return '<div class="tn-rep"><div class="tn-n">' + esc(i.Numero) + '</div><div><div class="tn-res">' + esc(i.Local) + '<b>' + of[0] + ' : ' + of[1] + '</b>' + esc(i.Visita) + '</div>' +
+      '<div class="tn-sub"><span class="badge b-azul">' + esc(i.Serie) + '</span><span>' + esc(C.fechaCL(i.Fecha)) + '</span>' + (i.FechaN ? '<span>' + esc(i.FechaN) + '</span>' : '') + '<span>Responsable: ' + esc(i.resp) + '</span></div>' +
+      '<div class="tn-sub"><span class="badge b-ok">Enviado ' + esc(ftEnvio(i.envio)) + '</span>' + (wo ? '<span class="badge b-parcial">W.O.</span>' : '') + (i.ediciones ? '<span class="badge b-ret">Editado</span>' : '') +
+      (i.foto ? '<span class="badge b-ok">Con acta</span>' : '<span class="badge b-deuda">Sin foto del acta</span>') + '</div></div>' +
+      '<div class="tn-acc"><button class="btn chico" data-tn="ver" data-id="' + i.ID + '">Ver informe</button>' +
+      (i.edita ? '<button class="btn chico" data-tn="editar" data-id="' + i.ID + '">Editar</button>' : (i.propio ? '<span class="badge b-ret" title="Pasó el plazo de ' + T.d.params.editarHoras + ' horas">Edición cerrada</span>' : '<span class="badge b-ret" title="Solo el autor o un administrador pueden editarlo">Solo el autor</span>')) +
+      (esAdmin() ? '<button class="btn chico peligro" data-tn="eliminar" data-id="' + i.ID + '">Eliminar</button>' : '') +
+      (i.edita && !esAdmin() ? '<div class="small muted" style="width:100%;text-align:right">Puedes editarlo hasta ' + esc(ftMs(lim)) + '</div>' : '') + '</div></div>';
+  }
+  function listaInformes() {
+    var el = $('#tn-res', T.v); if (!el) return;
+    var F = T.filt, q = F.q.trim().toLowerCase(), fa = F.fase.trim().toLowerCase();
+    var L = T.d.informes.filter(function (i) {
+      return (!F.serie || i.Serie === F.serie) && (!fa || String(i.FechaN).toLowerCase().indexOf(fa) >= 0) &&
+        (!q || (i.Local + ' ' + i.Visita + ' ' + i.Numero + ' ' + i.resp).toLowerCase().indexOf(q) >= 0);
+    });
+    var pend = (F.serie || fa || q) ? [] : cola();
+    el.innerHTML = (pend.length ? '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:6px">Sin enviar (' + pend.length + ')</h3>' + pend.map(itemCola).join('') + '</div>' : '') +
+      '<div class="card"><div class="small muted" style="margin-bottom:6px">' + L.length + ' informe' + (L.length === 1 ? '' : 's') + (T.d.informes.length >= 400 ? ' (últimos 400)' : '') + '</div>' +
+      (L.length ? L.slice(0, 100).map(filaInforme).join('') + (L.length > 100 ? '<div class="vacio">Hay más: usa los filtros para acotar.</div>' : '') : '<div class="vacio">No hay informes con esos filtros.</div>') + '</div>';
+  }
+
+  // ─── Ver informe / PDF ───
+  function actaHtml(i, fotoUrl) {
+    var of = oficial(i), wo = !!i.wo, fe = fechaEtq(i.FechaN), p = T.d.params;
+    function caja(l, v) { return '<div class="af"><span>' + l + '</span><i>' + esc(v) + '</i></div>'; }
+    function lin(l, v) { return '<div class="af"><span>' + l + '</span><u>' + esc(v || '') + '</u></div>'; }
+    return '<div class="acta"><div class="ah"><img src="' + esc(IMG.logo) + '" alt=""><div class="at"><b>' + esc(p.enc1) + '</b><b>' + esc(p.enc2) + '</b><u>INFORME DE TURNO</u></div><img src="' + esc(IMG.bandera) + '" alt=""></div>' +
+      '<div class="ag">' + caja(fe[0], fe[1]) + caja('FECHA', C.fechaCL(i.Fecha)) + caja('PARTIDO N°', i.Numero) + caja('HORA INICIO', i.inicio) + caja('SERIE', i.Serie) + caja('HORA FIN', i.fin) + '</div>' +
+      '<div class="ag"><div class="af"><span>LOCAL</span><i class="largo">' + esc(i.Local) + '</i></div><div class="af"><span>VISITA</span><i class="largo">' + esc(i.Visita) + '</i></div>' +
+      '<div class="af"><span>RESULTADO</span><i>' + of[0] + '</i></div><div class="af"><span>RESULTADO</span><i>' + of[1] + '</i></div></div>' +
+      (wo ? '<p class="aw"><b>W.O.:</b> resultado oficial por no presentación o incumplimiento del mínimo de jugadores.' + (i.pl != null && i.pv != null ? ' Marcador jugado: ' + i.pl + ' – ' + i.pv + '.' : '') + '</p>' : '') +
+      '<div class="ag uno">' + lin('ÁRBITRO 1', i.arb1) + lin('ÁRBITRO 2', i.arb2) + lin('ANOTADOR', i.anot) + lin('CRONOMETRISTA', i.crono) + lin('PLANILLERO', i.plan) + lin('RESP. TURNO', i.resp) + '</div>' +
+      '<div class="al">OBSERVACIONES</div><div class="ab">' + esc(i.obs || 'Sin observaciones') + '</div>' +
+      (fotoUrl ? '<div class="al">ACTA FIRMADA (ADJUNTA)</div><img class="afoto" src="' + fotoUrl + '" alt="Acta firmada">' : '') +
+      '<div class="as"><b>FECHA Y FIRMA DEL TURNO RESPONSABLE</b><div class="nm">' + esc(i.resp) + '</div><small>' + esc(ftEnvio(i.envio)) + ' · ' + esc(i.resp) + ' · ' + esc(p.pie) + '</small></div></div>';
+  }
+  function fotoDe(i) {
+    if (!i.foto) return Promise.resolve('');
+    if (T.fotos[i.ID]) return Promise.resolve(T.fotos[i.ID]);
+    return C.api('apiTurnoFoto', C.S.token, i.ID).then(function (r) { return (T.fotos[i.ID] = 'data:' + r.mime + ';base64,' + r.base64); });
+  }
+  function verInforme(i) {
+    var mo = C.modal('<h3>Informe del partido N° ' + esc(i.Numero) + '</h3>', '<div class="tn-papel" id="tn-acta">' + actaHtml(i, T.fotos[i.ID] || '') + '</div><div class="ayuda">Así se ve el informe. «Descargar PDF» abre la hoja lista para imprimir o guardar como PDF.</div>',
+      '<button class="btn" data-no>Cerrar</button><button class="btn prim" data-pdf>Descargar PDF</button>', { ancho: true });
+    $('[data-no]', mo).onclick = function () { mo.cerrar(); };
+    if (i.foto && !T.fotos[i.ID]) fotoDe(i).then(function (u) { var a = $('#tn-acta', mo); if (a) a.innerHTML = actaHtml(i, u); }).catch(function () { });
+    $('[data-pdf]', mo).onclick = function () { imprimir(i); };
+  }
+  function imprimir(i) {
+    var w = window.open('', '_blank');
+    if (!w) { C.toast('El navegador bloqueó la ventana. Permite las ventanas emergentes de este sitio e inténtalo de nuevo.', 'error'); return; }
+    w.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe de turno N° ' + esc(i.Numero) + ' - ' + esc(i.Serie) + '</title></head><body style="font-family:Arial;padding:24px">Preparando el informe…</body></html>');
+    fotoDe(i).catch(function () { return ''; }).then(function (u) {
+      var logo = absUrl(IMG.logo), band = absUrl(IMG.bandera);
+      var html = actaHtml(i, u).replace(esc(IMG.logo), esc(logo)).replace(esc(IMG.bandera), esc(band));
+      var css = ($('#tn-acta-css') || {}).textContent || '';
+      w.document.open();
+      w.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Informe de turno N° ' + esc(i.Numero) + ' - ' + esc(i.Serie) + '</title><style>' + css +
+        '@page{size:A4;margin:14mm}html,body{margin:0;background:#fff}.acta{border:0;max-width:none;min-width:0;padding:0}</style></head><body>' + html + '</body></html>');
+      w.document.close();
+      var imgs = Array.prototype.slice.call(w.document.images), n = imgs.length, listo = false;
+      function lanzar() { if (listo) return; listo = true; try { w.focus(); w.print(); } catch (e) { } }
+      if (!n) return lanzar();
+      imgs.forEach(function (im) { if (im.complete) { if (!--n) lanzar(); } else { im.onload = im.onerror = function () { if (!--n) lanzar(); }; } });
+      setTimeout(lanzar, 4000);
+    });
+  }
+
+  // ─── Administración ───
+  function pAdmin() {
+    var subs = [['arbitros', 'Árbitros'], ['mesa', 'Mesa de control'], ['params', 'Parámetros'], ['log', 'Registro']];
+    var atajos = '<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:6px">Fixture, series, equipos y usuarios</h3><p class="muted small" style="margin:0 0 10px">Son los mismos del resto del sistema, así que se cambian en sus secciones de siempre. El informe toma el partido (N°, fecha, hora, cancha), las series y los equipos desde ahí.</p>' +
+      '<div class="btns"><button class="btn chico" data-tn="ir" data-v="partidos">Partidos y N° de partido</button><button class="btn chico" data-tn="ir" data-v="categorias">Series (categorías)</button><button class="btn chico" data-tn="ir" data-v="clubes">Equipos (clubes)</button><button class="btn chico" data-tn="ir" data-v="config">Usuarios de turno</button></div></div>';
+    return atajos + '<div class="seg tn-tabs">' + subs.map(function (s) { return '<button data-tn="adm" data-t="' + s[0] + '" class="' + (T.adm === s[0] ? 'activo' : '') + '">' + s[1] + '</button>'; }).join('') + '</div>' +
+      (T.adm === 'params' ? aParams() : T.adm === 'log' ? '<div class="card"><h3 style="margin-bottom:6px">Registro de movimientos</h3><div id="tn-log"><div class="vacio">Cargando…</div></div></div>' : aLista(T.adm === 'mesa' ? 'mesa' : 'arbitro'));
+  }
+  function aLista(tipo) {
+    var L = tipo === 'mesa' ? T.d.mesa : T.d.arbitros, esArb = tipo === 'arbitro';
+    return '<div class="card"><h3>' + (esArb ? 'Árbitros' : 'Mesa de control') + '</h3><p class="ayuda" style="margin:4px 0 10px">' +
+      (esArb ? 'Lista del desplegable. La estrella (★) marca a quien quieras destacar. Los informes ya enviados conservan el nombre que tenían.' : 'Sugerencias para Anotador, Cronometrista y Planillero. El turno también puede escribir otro nombre.') + '</p>' +
+      (L.length ? L.map(function (x) {
+        return '<div class="tn-le"><input class="inp" data-le="' + x.ID + '" data-tipo="' + tipo + '" value="' + esc(x.Nombre) + '" aria-label="Nombre">' +
+          (esArb ? '<label><input type="checkbox" data-lm="' + x.ID + '"' + (x.Marca ? ' checked' : '') + '> ★</label>' : '') +
+          '<label><input type="checkbox" data-la="' + x.ID + '"' + (x.Activo ? ' checked' : '') + '> Activo</label><button class="btn chico peligro" data-tn="lquitar" data-id="' + x.ID + '">Quitar</button></div>';
+      }).join('') : '<div class="vacio">Aún no hay nombres.</div>') +
+      '<div class="btns" style="margin-top:12px"><input class="inp" id="tn-nuevo" placeholder="Apellido, Nombre" style="flex:1 1 220px;width:auto"><button class="btn prim" data-tn="lagregar" data-tipo="' + tipo + '">Agregar</button></div></div>';
+  }
+  function aParams() {
+    var p = T.d.params;
+    return '<div class="card"><h3 style="margin-bottom:12px">Parámetros del módulo</h3><form class="form" id="tn-par" onsubmit="return false">' +
+      '<div class="form f3"><label class="campo"><span>Horas que el turno puede editar su informe</span><input class="inp" name="editarHoras" inputmode="numeric" value="' + esc(p.editarHoras) + '"><div class="ayuda">Se cuentan desde el envío. Después, solo el administrador.</div></label>' +
+      '<label class="campo"><span>Partidos sin informe: días hacia atrás</span><input class="inp" name="diasAtras" inputmode="numeric" value="' + esc(p.diasAtras) + '"></label>' +
+      '<label class="campo"><span>Partidos por informar: días hacia adelante</span><input class="inp" name="diasAdelante" inputmode="numeric" value="' + esc(p.diasAdelante) + '"></label></div>' +
+      '<div class="form f2"><label class="campo"><span>Encabezado del informe, línea 1</span><input class="inp" name="enc1" value="' + esc(p.enc1) + '"></label><label class="campo"><span>Encabezado del informe, línea 2</span><input class="inp" name="enc2" value="' + esc(p.enc2) + '"></label></div>' +
+      '<label class="campo"><span>Pie del informe</span><input class="inp" name="pie" value="' + esc(p.pie) + '"></label>' +
+      '<label class="campo"><span>Texto de ayuda en Observaciones</span><textarea class="inp" name="ayudaObs">' + esc(p.ayudaObs) + '</textarea></label>' +
+      '<div><button class="btn prim" data-tn="gparams">Guardar parámetros</button></div></form></div>';
+  }
+  function cargarLog() {
+    C.api('apiTurnoLog', C.S.token).then(function (L) {
+      var el = $('#tn-log', T.v); if (!el) return;
+      el.innerHTML = L.length ? '<ul class="tn-log">' + L.map(function (l) { return '<li><time>' + esc(l.fecha) + '</time><span><b>' + esc(l.usuario) + '</b> · ' + esc(l.accion) + '</span></li>'; }).join('') + '</ul>' : '<div class="vacio">Sin movimientos todavía.</div>';
+    }).catch(C.fallo);
+  }
+
+  // ════════════════ Eventos ════════════════
+  function buscarInforme(id) { return T.d.informes.filter(function (i) { return i.ID === Number(id); })[0]; }
+  function refrescar() { return cargar().then(function () { if (activa()) pintar(); }); }
+  var ACCIONES = {
+    tab: function (b) { T.tab = b.dataset.t; pintar(); },
+    adm: function (b) { T.adm = b.dataset.t; pintar(); },
+    ir: function (b) { C.irA(b.dataset.v); },
+    informar: function (b) { var m = T.d.porInformar.filter(function (x) { return x.ID === Number(b.dataset.id); })[0]; if (m) iniciarForm(m); },
+    cancelar: function () { guardarBorrador(); T.form = null; pintar(); window.scrollTo(0, 0); },
+    stp: function (b) { var f = T.form, k = b.dataset.k, v = num(f.d[k]); f.d[k] = String(Math.max(0, (v == null || isNaN(v) ? 0 : v) + Number(b.dataset.d))); $('#f-' + k, T.v).value = f.d[k]; derivado(); guardarBorrador(); },
+    ahora: function (b) { var k = b.dataset.k, d = new Date(); T.form.d[k] = p2(d.getHours()) + ':' + p2(d.getMinutes()); $('#f-' + k, T.v).value = T.form.d[k]; guardarBorrador(); },
+    sinfoto: function () { var d = T.form.d; if (d.foto) d.foto = ''; else d.quitarFoto = true; guardarBorrador(); pintar(); },
+    revisar: revisar,
+    limpiar: function () { T.filt = { serie: '', fase: '', q: '' }; pintar(); },
+    ver: function (b) { var i = buscarInforme(b.dataset.id); if (i) verInforme(i); },
+    editar: function (b) {
+      var i = buscarInforme(b.dataset.id); if (!i) return;
+      if (!i.edita) { C.toast('Pasó el plazo de edición.', 'error'); return; }
+      var m = { ID: i.PartidoID, Numero: i.Numero, Fecha: i.Fecha, Hora: '', Fase: i.FechaN, Recinto: '', Serie: i.Serie, Local: i.Local, Visita: i.Visita };
+      var d = { inicio: i.inicio, fin: i.fin, pl: i.pl == null ? '' : String(i.pl), pv: i.pv == null ? '' : String(i.pv), woL: i.wo === 'L', woV: i.wo === 'V', arb1: i.arb1, arb2: i.arb2, anot: i.anot, crono: i.crono, plan: i.plan, obs: i.obs, foto: '', tieneFoto: !!i.foto, quitarFoto: false };
+      iniciarForm(m, { d: d, editId: i.ID });
+      T.form.respNombre = i.resp;
+    },
+    eliminar: function (b) {
+      var i = buscarInforme(b.dataset.id); if (!i) return;
+      C.confirmar('Eliminar informe', 'Se borra el informe del partido N° ' + esc(i.Numero) + ' (' + esc(i.Local) + ' vs ' + esc(i.Visita) + ') y el partido vuelve a quedar «Programado», sin marcador. En la tabla de posiciones dejará de contar.', 'Eliminar', true).then(function (ok) {
+        if (!ok) return;
+        C.api('apiTurnoEliminar', C.S.token, i.ID).then(function (r) { C.toast(r.mensaje, 'ok'); return refrescar(); }).catch(C.fallo);
+      });
+    },
+    reintentar: function () { vaciarCola(true); },
+    corregir: function (b) {
+      var it = cola().filter(function (x) { return x.cid === b.dataset.cid; })[0]; if (!it) return;
+      var p = it.payload;
+      var d = { inicio: p.inicio, fin: p.fin, pl: p.pl === '' ? '' : String(p.pl), pv: p.pv === '' ? '' : String(p.pv), woL: p.wo === 'L', woV: p.wo === 'V', arb1: p.arb1, arb2: p.arb2, anot: p.anot, crono: p.crono, plan: p.plan, obs: p.obs,
+        foto: p.foto ? 'data:' + p.foto.mime + ';base64,' + p.foto.base64 : '', tieneFoto: false, quitarFoto: false };
+      iniciarForm(it.match, { d: d, cid: it.cid, reemplaza: it.cid });
+    },
+    descartar: function (b) {
+      C.confirmar('Descartar informe sin enviar', 'Este informe todavía no llegó al sistema. Si lo descartas, se pierde y el partido seguirá sin informe. ¿Descartarlo?', 'Descartar', true).then(function (ok) {
+        if (!ok) return; guardaCola(cola().filter(function (x) { return x.cid !== b.dataset.cid; })); pintar();
+      });
+    },
+    lagregar: function (b) {
+      var inp = $('#tn-nuevo', T.v), n = inp.value.trim(); if (!n) { C.toast('Escribe un nombre.', 'error'); return; }
+      C.api('apiTurnoGuardarLista', C.S.token, { Tipo: b.dataset.tipo, Nombre: n, Marca: false, Activo: true }).then(function () { return refrescar(); }).catch(C.fallo);
+    },
+    lquitar: function (b) {
+      var id = Number(b.dataset.id), x = T.d.arbitros.concat(T.d.mesa).filter(function (r) { return r.ID === id; })[0];
+      C.confirmar('Quitar de la lista', '¿Quitar a «' + esc(x ? x.Nombre : '') + '»? Los informes ya enviados conservan el nombre. Si solo quieres que deje de aparecer, desmarca «Activo».', 'Quitar', true).then(function (ok) {
+        if (!ok) return; C.api('apiTurnoEliminarLista', C.S.token, id).then(function () { return refrescar(); }).catch(C.fallo);
+      });
+    },
+    gparams: function () {
+      var f = $('#tn-par', T.v), v = {}; ['editarHoras', 'diasAtras', 'diasAdelante', 'enc1', 'enc2', 'pie', 'ayudaObs'].forEach(function (k) { v[k] = f.elements[k].value; });
+      C.api('apiTurnoGuardarParametros', C.S.token, v).then(function (r) { C.toast(r.mensaje, 'ok'); return refrescar(); }).catch(C.fallo);
+    }
+  };
+  function clic(e) {
+    var b = e.target.closest ? e.target.closest('[data-tn]') : null; if (!b || !T.v || !T.v.contains(b)) return;
+    var a = ACCIONES[b.dataset.tn]; if (a) { if (b.tagName !== 'INPUT') e.preventDefault(); a(b, e); }
+  }
+  var tFiltro = null;
+  function entrada(e) {
+    var t = e.target;
+    if (t.dataset.f && T.form) {
+      var k = t.dataset.f; T.form.d[k] = t.type === 'checkbox' ? t.checked : t.value;
+      if (t.type === 'checkbox') {
+        var lab = t.closest('.tn-chk'); if (lab) lab.classList.toggle('on', t.checked);
+        if (t.checked) { var otro = k === 'woL' ? 'woV' : k === 'woL' ? '' : 'woL'; if (k === 'woL' || k === 'woV') { var o = k === 'woL' ? 'woV' : 'woL'; T.form.d[o] = false; var oc = $('[data-f="' + o + '"]', T.v); if (oc) { oc.checked = false; oc.closest('.tn-chk').classList.remove('on'); } } }
+      }
+      t.classList.remove('mal'); derivado(); guardarBorrador();
+    } else if (t.dataset.flt) {
+      T.filt[t.dataset.flt] = t.value;
+      if (t.tagName === 'SELECT') pintar(); else { clearTimeout(tFiltro); tFiltro = setTimeout(listaInformes, 200); }
+    }
+  }
+  function cambio(e) {
+    var t = e.target;
+    if (t.id === 'f-foto' && t.files && t.files[0]) { reducirFoto(t.files[0]); return; }
+    if (t.dataset.tn === 'todos') { T.todos = t.checked; cargar().then(function () { if (activa()) pintar(); }).catch(C.fallo); return; }
+    var id = t.dataset.le || t.dataset.lm || t.dataset.la;
+    if (id && T.d) {
+      var x = T.d.arbitros.concat(T.d.mesa).filter(function (r) { return r.ID === Number(id); })[0]; if (!x) return;
+      var nom = t.dataset.le ? t.value : x.Nombre, marca = t.dataset.lm ? t.checked : x.Marca, act = t.dataset.la ? t.checked : x.Activo;
+      C.api('apiTurnoGuardarLista', C.S.token, { ID: x.ID, Nombre: nom, Marca: marca, Activo: act }).then(function () { C.toast('Guardado.', 'ok'); return refrescar(); }).catch(function (er) { C.fallo(er); refrescar(); });
+    }
+  }
+  function reducirFoto(file) {
+    var fr = new FileReader();
+    fr.onload = function () {
+      var im = new Image();
+      im.onload = function () {
+        var s = Math.min(1, 1200 / Math.max(im.width, im.height)), c = document.createElement('canvas');
+        c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        T.form.d.foto = c.toDataURL('image/jpeg', 0.72); T.form.d.quitarFoto = false; guardarBorrador(); pintar();
+      };
+      im.onerror = function () { C.toast('No se pudo leer esa imagen. Prueba con otra foto.', 'error'); };
+      im.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  }
+
+  // ════════════════ Conexión con el panel ════════════════
+  window.addEventListener('online', function () { if (C.S.token) { vaciarCola(); if (activa()) pintar(); } });
+  window.addEventListener('offline', function () { if (activa()) pintar(); });
+  C.vistas.turnos = vistaTurnos;
+  var previo = window.ABPA_PANEL || {};
+  window.ABPA_PANEL = {
+    alEntrar: function () {
+      T.d = null; T.form = null; T.tab = 'pend'; T.todos = false; T.fotos = {};
+      actualizarBadge();
+      if (C.S.datos.sesion.rol === 'turno' || C.S.datos.sesion.rol === 'admin') vaciarCola();
+      if (C.S.datos.sesion.rol !== 'turno' && previo.alEntrar) previo.alEntrar();
+    }
+  };
 })();
 </script>
 
