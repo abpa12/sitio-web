@@ -47,6 +47,11 @@ a{color:var(--azul)}
 .top .salir:hover{background:rgba(255,255,255,.24)}
 .nav{background:#fff;border-bottom:1px solid var(--borde);position:sticky;top:68px;z-index:19}
 .nav-in{max-width:1240px;margin:0 auto;display:flex;gap:4px;padding:0 12px;overflow-x:auto;scrollbar-width:none}
+@media (min-width:761px){.nav-in{flex-wrap:wrap;overflow-x:visible;row-gap:0}.nav button{padding:11px 12px}}
+.top .usuario{cursor:pointer;border-radius:8px;padding:4px 8px;transition:background .15s}
+.top .usuario:hover{background:rgba(255,255,255,.14)}
+.top .usuario:hover b{text-decoration:underline}
+.top .usuario small{display:block;font-size:11px;opacity:.8}
 .nav button{background:none;border:0;padding:13px 14px;font-weight:600;color:var(--tinta-2);border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap}
 .nav button:hover{color:var(--prim)}
 .nav button.activo{color:var(--prim);border-bottom-color:var(--prim)}
@@ -256,7 +261,7 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
       <div class="top-in">
         <img src="../assets/img/logo-96.png" alt="">
         <div class="marca">ABPA<small>Panel del sitio web</small></div>
-        <div class="usuario"><b id="u-nombre"></b><span id="u-rol"></span></div>
+        <div class="usuario" id="u-cuenta" role="button" tabindex="0" title="Mi cuenta: cambiar clave"><b id="u-nombre"></b><span id="u-rol"></span><small>⚙ Mi cuenta y clave</small></div>
         <button class="salir" id="btn-salir" type="button">Salir</button>
       </div>
     </header>
@@ -432,6 +437,9 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
     document.body.className = '';
   }
   $('#btn-salir').onclick = function () { salir(false); };
+  // Clic en el nombre (arriba a la derecha) → Configuración (cambiar clave)
+  $('#u-cuenta').onclick = function () { irA('config'); };
+  $('#u-cuenta').onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); irA('config'); } };
   function recargar() { return api('apiDatos', S.token).then(function (d) { S.datos = d; }); }
 
   // ════════════════ Navegación ════════════════
