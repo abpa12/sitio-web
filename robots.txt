@@ -1,3 +1,4 @@
 User-agent: *
 Disallow: /panel/
+Disallow: /turno/
 Sitemap: https://www.abpa.cl/sitemap.xml

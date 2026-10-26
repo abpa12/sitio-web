@@ -7,7 +7,7 @@
   <meta name="robots" content="noindex, nofollow">
   <title>Panel · ABPA</title>
   <link rel="icon" type="image/png" href="../assets/img/favicon.png">
-  <script src="../assets/config.js?v=20261026a"></script>
+  <script src="../assets/config.js?v=20261026b"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -415,6 +415,8 @@ body.rol-turno .nav button:not(.nav-turnos):not([data-vista=config]){display:non
     $('#app').classList.remove('oculto');
     if (window.ABPA_PANEL) window.ABPA_PANEL.alEntrar();
     var rol = r.datos.sesion.rol, ini = S.vista || 'inicio';
+    // Entrada por www.abpa.cl/turno/: el turno (o un administrador) va directo a los informes
+    if (window.ABPA_MODO === 'turno' && (rol === 'turno' || rol === 'admin') && !S.entroTurno) { ini = 'turnos'; S.entroTurno = true; }
     if (rol === 'turno' && ini !== 'turnos' && ini !== 'config') ini = 'turnos';
     if (rol !== 'turno' && rol !== 'admin' && ini === 'turnos') ini = 'inicio';
     irA(S.clavePorDefecto ? 'config' : ini);

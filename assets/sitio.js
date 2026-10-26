@@ -106,7 +106,7 @@
       '<p style="margin-top:14px;font-size:.94rem;max-width:320px">Competencias oficiales de básquetbol en Punta Arenas, Región de Magallanes y de la Antártica Chilena.</p>' + (r ? '<div class="redes">' + r + '</div>' : '') + '</div>' +
       '<div><h2 class="pie-tit">Competencias</h2><ul><li><a href="fixture.html">Fixture y resultados</a></li><li><a href="posiciones.html">Tabla de posiciones</a></li><li><a href="clubes.html">Clubes</a></li></ul></div>' +
       '<div><h2 class="pie-tit">Asociación</h2><ul><li><a href="nosotros.html">Quiénes somos</a></li><li><a href="noticias.html">Noticias</a></li><li><a href="galeria.html">Galería</a></li><li><a href="documentos.html">Documentos oficiales</a></li>' +
-      (PANEL ? '<li><a href="' + esc(PANEL) + '" rel="nofollow">Acceso administración</a></li>' : '') + '</ul></div>' +
+      (PANEL ? '<li><a href="' + esc(PANEL) + '" rel="nofollow">Ingreso dirigentes</a></li>' : '') + '<li><a href="turno/" rel="nofollow">Informe de turno</a></li>' + '</ul></div>' +
       '<div><h2 class="pie-tit">Contacto</h2><ul>' + (correo ? '<li><a href="mailto:' + esc(correo) + '">' + esc(correo) + '</a></li>' : '') + (t.CONTACTO_TELEFONO ? '<li><a href="tel:' + esc(t.CONTACTO_TELEFONO.replace(/\s/g, '')) + '">' + esc(t.CONTACTO_TELEFONO) + '</a></li>' : '') +
       '<li>' + esc(t.CONTACTO_DIRECCION || 'Punta Arenas, Magallanes') + '</li><li><a href="contacto.html">Escríbenos</a></li></ul></div></div>' +
       '<div class="pie-base"><span>© ' + new Date().getFullYear() + ' ' + esc(d.org || ORG) + '. Todos los derechos reservados.</span><span><a href="privacidad.html">Política de privacidad</a> · Punta Arenas · Magallanes · Chile</span></div></div></footer>' +
